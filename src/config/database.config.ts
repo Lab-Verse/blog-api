@@ -24,10 +24,7 @@ export const dataSourceOptions: DataSourceOptions = {
   
 
   // This matches all .entity.ts/.js files inside all modules/entities folders
-  entities: [
-    __dirname + '/../modules/**/entities/*.entity.{ts,js}',
-    'src/modules/**/entities/*.entity.{ts,js}',
-  ],
+  entities: [__dirname + '/../modules/**/entities/*.entity.js'],
 
   // This matches migration files in src/database/migrations folder
   migrations: [__dirname + '/../database/migrations/*.{ts,js}'],
