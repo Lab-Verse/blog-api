@@ -31,6 +31,12 @@ import { PostMediaModule } from './modules/post-media/post-media.module';
 import { PostTagsModule } from './modules/post-tags/post-tags.module';
 import { RolePermissionsModule } from './modules/role-permissions/role-permissions.module';
 
+console.log('DB Configuration app:', {
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  username: process.env.DB_USERNAME,
+  database: process.env.DB_DATABASE,  // This should log 'blog_db'
+});
 @Module({
   imports: [
     ConfigModule.forRoot({
