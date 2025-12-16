@@ -36,7 +36,7 @@ console.log('DB Configuration app:', {
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
   username: process.env.DB_USERNAME,
-  database: process.env.DB_DATABASE,  // This should log 'blog_db'
+  database: process.env.DB_DATABASE, // This should log 'blog_db'
 });
 @Module({
   imports: [
