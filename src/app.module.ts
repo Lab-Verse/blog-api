@@ -31,6 +31,7 @@ import { CommentRepliesModule } from './modules/comment-replies/comment-replies.
 import { PostMediaModule } from './modules/post-media/post-media.module';
 import { PostTagsModule } from './modules/post-tags/post-tags.module';
 import { RolePermissionsModule } from './modules/role-permissions/role-permissions.module';
+import { ImportModule } from './modules/import/import.module';
 
 console.log('DB Configuration app:', {
   host: process.env.DB_HOST,
@@ -72,6 +73,7 @@ console.log('DB Configuration app:', {
     PostMediaModule,
     PostTagsModule,
     RolePermissionsModule,
+    ImportModule,
   ],
   controllers: [AppController],
   providers: [AppService],

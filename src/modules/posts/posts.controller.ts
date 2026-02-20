@@ -14,8 +14,6 @@ import {
 } from '@nestjs/common';
 import { Request } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
 import { PostsService } from './posts.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
@@ -23,6 +21,7 @@ import { ViewsService } from '../views/views.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AuditInterceptor } from '../../common/interceptors/audit.interceptor';
 import { Audit } from '../../common/decorators/audit.decorator';
+import { CloudflareService } from '../../common/services/cloudflare.service';
 
 @Controller('posts')
 @UseInterceptors(AuditInterceptor)
@@ -30,25 +29,15 @@ export class PostsController {
   constructor(
     private readonly postsService: PostsService,
     private readonly viewsService: ViewsService,
+    private readonly cloudflareService: CloudflareService,
   ) {}
 
   @Post()
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(
     FileInterceptor('featured_image', {
-      storage: diskStorage({
-        destination: './uploads/post-images',
-        filename: (req, file, cb) => {
-          const uniqueSuffix =
-            Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
-        },
-      }),
-      fileFilter: (req, file, cb) => {
-        if (!file.originalname.match(/\.(jpg|jpeg|png|gif|webp)$/)) {
-          return cb(new Error('Only image files are allowed!'), false);
-        }
-        cb(null, true);
+      limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB max file size
       },
     }),
   )
@@ -56,8 +45,26 @@ export class PostsController {
   async create(
     @Body() createPostDto: CreatePostDto,
     @UploadedFile() file: Express.Multer.File,
+    @Req() req: Request & { user?: { id: string } },
   ) {
-    return this.postsService.create(createPostDto, file?.filename);
+    // Auto-assign user_id from JWT token
+    if (req.user?.id) {
+      createPostDto.user_id = req.user.id;
+    }
+
+    // Upload image to Cloudflare R2 if provided
+    let imageUrl: string | undefined;
+    if (file) {
+      const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}-${file.originalname}`;
+      imageUrl = await this.cloudflareService.uploadFile(
+        file.buffer,
+        filename,
+        'post-images',
+      );
+      console.log('✅ Image uploaded to Cloudflare R2:', imageUrl);
+    }
+
+    return this.postsService.create(createPostDto, imageUrl);
   }
 
   @Get()

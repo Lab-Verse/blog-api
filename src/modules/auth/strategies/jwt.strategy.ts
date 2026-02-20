@@ -30,7 +30,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   validate(payload: JwtPayload) {
     console.log('JWT Strategy validate called with payload:', payload);
-    if (!payload.sub || typeof payload.sub !== 'string') {
+    if (!payload.sub) {
+      console.error('Invalid token: missing sub');
       throw new UnauthorizedException('Invalid token payload');
     }
     return {

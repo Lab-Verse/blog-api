@@ -10,6 +10,9 @@ import { AuthGuard } from '@nestjs/passport';
 export class JwtAuthGuard extends AuthGuard('jwt') {
   canActivate(context: ExecutionContext) {
     const request = context.switchToHttp().getRequest<Request>();
+    const authHeader = request.headers.authorization;
+    console.log('JwtAuthGuard - Authorization header:', authHeader);
+    
     const routePath =
       request.route &&
       typeof request.route === 'object' &&

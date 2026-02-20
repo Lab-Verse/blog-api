@@ -7,6 +7,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Post } from './entities/post.entity';
+import { PostCategory } from '../post-categories/entities/post-category.entity';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 
@@ -15,13 +16,15 @@ export class PostsService {
   constructor(
     @InjectRepository(Post)
     private postRepository: Repository<Post>,
+    @InjectRepository(PostCategory)
+    private postCategoryRepository: Repository<PostCategory>,
   ) {}
 
-  async create(createPostDto: CreatePostDto, filename?: string): Promise<Post> {
+  async create(createPostDto: CreatePostDto, imageUrl?: string): Promise<Post> {
     try {
-      // If a file was uploaded, set the featured_image field
-      if (filename) {
-        createPostDto.featured_image = filename;
+      // If an image was uploaded to Cloudflare, set the featured_image URL
+      if (imageUrl) {
+        createPostDto.featured_image = imageUrl;
       }
 
       const post = this.postRepository.create({
@@ -32,7 +35,20 @@ export class PostsService {
         comments_count: 0,
       });
 
-      return await this.postRepository.save(post);
+      const savedPost = await this.postRepository.save(post);
+
+      // Handle many-to-many category relationships
+      if (createPostDto.category_ids && createPostDto.category_ids.length > 0) {
+        for (const categoryId of createPostDto.category_ids) {
+          const postCategory = this.postCategoryRepository.create({
+            post_id: savedPost.id,
+            category_id: categoryId,
+          });
+          await this.postCategoryRepository.save(postCategory);
+        }
+      }
+
+      return savedPost;
     } catch (error: unknown) {
       if (
         error &&
@@ -54,10 +70,12 @@ export class PostsService {
     categoryId?: string;
     userId?: string;
   }): Promise<Post[]> {
-    const query = this.postRepository.createQueryBuilder('post');
+    const query = this.postRepository.createQueryBuilder('post')
+      .leftJoinAndSelect('post.postCategories', 'postCategories')
+      .leftJoinAndSelect('postCategories.category', 'category');
 
     if (filters?.categoryId) {
-      query.andWhere('post.category_id = :categoryId', {
+      query.andWhere('category.id = :categoryId', {
         categoryId: filters.categoryId,
       });
     }
@@ -76,7 +94,7 @@ export class PostsService {
 
     const post = await this.postRepository.findOne({
       where: { id },
-      relations: ['user', 'category'],
+      relations: ['user', 'category', 'postCategories', 'postCategories.category'],
     });
 
     if (!post) {

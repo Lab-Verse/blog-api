@@ -40,6 +40,12 @@ export class AuthController {
     return this.authService.refreshToken(dto);
   }
 
+  @Post('refresh-token')
+  @HttpCode(HttpStatus.OK)
+  async refreshToken(@Body() dto: RefreshTokenDto) {
+    return this.authService.refreshToken(dto);
+  }
+
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @Audit({ action: 'USER_LOGOUT', resource: 'User' })

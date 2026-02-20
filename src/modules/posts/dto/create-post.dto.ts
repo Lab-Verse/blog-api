@@ -4,6 +4,8 @@ import {
   IsEnum,
   IsOptional,
   IsDateString,
+  IsArray,
+  IsUUID,
 } from 'class-validator';
 
 export enum PostStatus {
@@ -25,13 +27,26 @@ export class CreatePostDto {
   @IsString()
   content: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  user_id: string;
+  excerpt?: string;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @IsOptional()
+  @IsString()
+  user_id?: string;
 
   @IsNotEmpty()
   @IsString()
-  category_id: string;
+  category_id: string; // Legacy field - first category
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  category_ids?: string[]; // Array of category IDs for many-to-many
 
   @IsOptional()
   @IsEnum(PostStatus)

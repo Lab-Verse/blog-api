@@ -6,7 +6,9 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  OneToMany,
 } from 'typeorm';
+import { PostCategory } from '../../post-categories/entities/post-category.entity';
 
 @Entity('categories')
 export class Category {
@@ -40,4 +42,7 @@ export class Category {
   @ManyToOne(() => Category, { onDelete: 'SET NULL' })
   @JoinColumn({ name: 'parent_id' })
   parent: Category;
+
+  @OneToMany(() => PostCategory, (postCategory) => postCategory.category)
+  postCategories: PostCategory[];
 }

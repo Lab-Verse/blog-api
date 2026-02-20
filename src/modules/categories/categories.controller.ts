@@ -39,7 +39,13 @@ export class CategoriesController {
 
   @Get()
   async findAll() {
-    return this.categoriesService.findAll();
+    const categories = await this.categoriesService.findAll();
+    return {
+      items: categories,
+      total: categories.length,
+      page: 1,
+      limit: categories.length,
+    };
   }
 
   @Get(':id')

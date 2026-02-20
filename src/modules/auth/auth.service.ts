@@ -18,7 +18,8 @@ import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 
-import { RolesService } from '../roles/roles.service'; // ✅ add import
+import { RolesService } from '../roles/roles.service';
+import { EmailService } from './email.service';
 
 interface ResetPasswordPayload {
   sub: string;
@@ -30,7 +31,8 @@ export class AuthService {
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
-    private rolesService: RolesService, // ✅ inject here
+    private rolesService: RolesService,
+    private emailService: EmailService,
     @InjectRepository(RefreshToken)
     private refreshTokenRepository: Repository<RefreshToken>,
   ) {}
@@ -63,12 +65,23 @@ export class AuthService {
 
     const user = await this.usersService.create(userPayload);
 
+    // Generate tokens for auto-login after registration
+    const payload = { sub: user.id, email: user.email, role_id: user.role_id };
+    const accessToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+    const refreshToken = await this.generateRefreshToken(user.id);
+
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, ...result } = user;
     return {
       success: true,
       message: 'User registered successfully',
-      user: result,
+      data: {
+        user: result,
+        tokens: {
+          accessToken,
+          refreshToken: refreshToken.token,
+        },
+      },
     };
   }
 
@@ -76,13 +89,23 @@ export class AuthService {
     const user = await this.usersService.findByEmailWithPassword(dto.email);
 
     if (!user) {
-      throw new UnauthorizedException('User not found');
+      throw new UnauthorizedException('Invalid credentials');
     }
 
     const passwordMatch = await bcrypt.compare(dto.password, user.password);
 
     if (!passwordMatch) {
-      throw new UnauthorizedException('Invalid password');
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // Check if user has admin role
+    if (user.role_id) {
+      const role = await this.rolesService.findById(user.role_id);
+      if (!role || (role.slug !== 'admin' && role.slug !== 'super_admin')) {
+        throw new UnauthorizedException('Access denied. Admin privileges required');
+      }
+    } else {
+      throw new UnauthorizedException('Access denied. Admin privileges required');
     }
 
     const payload = { sub: user.id, email: user.email, role_id: user.role_id };
@@ -156,11 +179,23 @@ export class AuthService {
       { expiresIn: '1h' },
     );
 
-    return {
-      success: true,
-      message: 'Password reset token generated',
-      token: resetToken,
-    };
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/reset-password?token=${resetToken}`;
+
+    try {
+      await this.emailService.sendPasswordResetEmail(user.email, resetUrl);
+      return {
+        success: true,
+        message: 'Password reset link sent to your email',
+      };
+    } catch (error) {
+      console.error('Email send error:', error);
+      return {
+        success: true,
+        message: 'Email service unavailable. Use this link:',
+        token: resetToken,
+        resetUrl,
+      };
+    }
   }
 
   async resetPassword(dto: ResetPasswordDto) {

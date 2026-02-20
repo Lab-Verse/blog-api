@@ -14,6 +14,7 @@ import { PostMedia } from 'src/modules/post-media/entities/post-media.entity';
 import { PostTag } from 'src/modules/post-tags/entities/post-tag.entity';
 import { Reaction } from 'src/modules/reactions/entities/reaction.entity';
 import { Comment } from 'src/modules/comments/entities/comment.entity';
+import { PostCategory } from '../../post-categories/entities/post-category.entity';
 
 export enum PostStatus {
   DRAFT = 'draft',
@@ -23,7 +24,7 @@ export enum PostStatus {
 
 @Entity('posts')
 export class Post {
-  @PrimaryGeneratedColumn()
+  @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Column()
@@ -34,6 +35,15 @@ export class Post {
 
   @Column('text')
   content: string;
+
+  @Column('text', { nullable: true })
+  excerpt?: string;
+
+  @Column({ nullable: true })
+  description?: string;
+
+  @Column({ nullable: true })
+  guid?: string;
 
   @Column()
   user_id: string;
@@ -58,6 +68,12 @@ export class Post {
 
   @Column({ nullable: true })
   published_at: Date;
+
+  @Column({ type: 'timestamp', nullable: true })
+  post_date_gmt?: Date;
+
+  @Column({ type: 'timestamp', nullable: true })
+  post_modified_gmt?: Date;
 
   @CreateDateColumn()
   created_at: Date;
@@ -84,6 +100,9 @@ export class Post {
 
   @OneToMany(() => Reaction, (reaction) => reaction.post, { cascade: true })
   reactions: Reaction[];
+
+  @OneToMany(() => PostCategory, (postCategory) => postCategory.post, { cascade: true })
+  postCategories: PostCategory[];
 
   @OneToMany(() => Post, (post) => post.user)
   posts: Post[];

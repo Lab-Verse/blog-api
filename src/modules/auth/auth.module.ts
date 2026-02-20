@@ -11,6 +11,7 @@ import { RefreshToken } from './entities/refresh-token.entity';
 import { UsersModule } from '../users/users.module';
 import { RolesModule } from '../roles/roles.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
+import { EmailService } from './email.service';
 
 @Module({
   imports: [
@@ -30,7 +31,7 @@ import { AuditLogsModule } from '../audit-logs/audit-logs.module';
     ConfigModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, JwtAuthGuard],
+  providers: [AuthService, JwtStrategy, JwtAuthGuard, EmailService],
   exports: [AuthService, JwtAuthGuard],
 })
 export class AuthModule {}
