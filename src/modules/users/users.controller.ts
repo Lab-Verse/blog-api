@@ -12,6 +12,7 @@ import {
   UseInterceptors,
   UploadedFile,
   NotFoundException,
+  Query,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -44,8 +45,15 @@ export class UsersController {
   }
 
   @Get()
-  async findAll() {
-    return this.usersService.findAll();
+  async findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+  ) {
+    const pageNum = page ? parseInt(page, 10) : 1;
+    const limitNum = limit ? parseInt(limit, 10) : 10;
+    return this.usersService.findAll(pageNum, limitNum, search, status);
   }
 
   @Get(':id')
@@ -148,20 +156,13 @@ export class UsersController {
   @Post(':id/profile/upload')
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: diskStorage({
-        destination: './uploads/profile-pictures',
-        filename: (req, file, cb) => {
-          const uniqueSuffix =
-            Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
-        },
-      }),
       fileFilter: (req, file, cb) => {
         if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) {
           return cb(new Error('Only image files are allowed!'), false);
         }
         cb(null, true);
       },
+      limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
     }),
   )
   @Audit({ action: 'UPLOAD_PROFILE_PICTURE', resource: 'UserProfile' })
@@ -172,7 +173,7 @@ export class UsersController {
     if (!file) {
       throw new HttpException('No file uploaded', HttpStatus.BAD_REQUEST);
     }
-    return this.usersService.uploadProfilePicture(id, file.filename);
+    return this.usersService.uploadProfilePicture(id, file.buffer, file.originalname);
   }
 
   @Delete(':id/profile')

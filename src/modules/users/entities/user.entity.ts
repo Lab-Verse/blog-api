@@ -30,12 +30,6 @@ export class User {
   @Column({ nullable: true })
   display_name?: string;
 
-  @Column({ nullable: true })
-  first_name?: string;
-
-  @Column({ nullable: true })
-  last_name?: string;
-
   @Column({ unique: true, nullable: true })
   login?: string;
 

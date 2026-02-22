@@ -27,9 +27,6 @@ export class UserProfile {
   bio: string;
 
   @Column({ nullable: true })
-  avatar: string;
-
-  @Column({ nullable: true })
   profile_picture: string;
 
   @Column({ nullable: true })

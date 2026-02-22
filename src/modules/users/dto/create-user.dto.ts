@@ -29,6 +29,10 @@ export class CreateUserDto {
   password: string;
 
   @IsOptional()
+  @IsString()
+  display_name?: string;
+
+  @IsOptional()
   @IsEnum(Role)
   @Transform(({ value }) => value || 'user')
   role?: string = 'user';

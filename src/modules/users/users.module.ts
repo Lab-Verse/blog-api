@@ -13,6 +13,7 @@ import { Notification } from '../notifications/entities/notification.entity';
 import { Category } from '../categories/entities/category.entity';
 import { Role } from '../roles/entities/role.entity';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
+import { CloudflareService } from '../../common/services/cloudflare.service';
 
 @Module({
   imports: [
@@ -31,7 +32,7 @@ import { AuditLogsModule } from '../audit-logs/audit-logs.module';
     AuditLogsModule,
   ],
   controllers: [UsersController],
-  providers: [UsersService],
+  providers: [UsersService, CloudflareService],
   exports: [UsersService],
 })
 export class UsersModule {}

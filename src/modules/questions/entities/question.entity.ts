@@ -33,7 +33,7 @@ export class Question {
   @Column('text')
   content: string;
 
-  @Column()
+  @Column({ nullable: true })
   category_id: string;
 
   @Column({ type: 'enum', enum: QuestionStatus, nullable: true })

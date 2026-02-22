@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Not, FindOptionsWhere, FindOptionsOrder } from 'typeorm';
+import * as bcrypt from 'bcryptjs';
 import { User } from './entities/user.entity';
 import { UserProfile } from './entities/user-profile.entity';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -19,8 +20,7 @@ import { AuthorFollower } from '../author-followers/entities/author-follower.ent
 import { Notification } from '../notifications/entities/notification.entity';
 import { Category } from '../categories/entities/category.entity';
 import { Role } from '../roles/entities/role.entity';
-import * as fs from 'fs';
-import * as path from 'path';
+import { CloudflareService } from '../../common/services/cloudflare.service';
 
 @Injectable()
 export class UsersService {
@@ -54,9 +54,14 @@ export class UsersService {
 
     @InjectRepository(Role)
     private roleRepository: Repository<Role>,
+
+    private cloudflareService: CloudflareService,
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<User> {
+    // Hash password
+    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+
     // Get role ID based on role name
     if (createUserDto.role) {
       const role = await this.roleRepository.findOne({
@@ -68,24 +73,71 @@ export class UsersService {
       }
     }
 
-    const user = this.userRepository.create(createUserDto);
+    const user = this.userRepository.create({
+      ...createUserDto,
+      password: hashedPassword,
+    });
     return this.userRepository.save(user);
   }
 
-  async findAll(): Promise<User[]> {
-    return this.userRepository.find({
-      where: { role: Not('super_admin') },
-      select: [
-        'id',
-        'username',
-        'email',
-        'role',
-        'role_id',
-        'status',
-        'created_at',
-        'updated_at',
-      ],
-    });
+  async findAll(
+    page: number = 1,
+    limit: number = 10,
+    search?: string,
+    status?: string,
+  ): Promise<{
+    items: User[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    const where: FindOptionsWhere<User> = {
+      role: Not('super_admin'),
+    };
+
+    if (status) {
+      where.status = status as any;
+    }
+
+    const queryBuilder = this.userRepository.createQueryBuilder('user');
+    queryBuilder.where('user.role != :role', { role: 'super_admin' });
+
+    if (search) {
+      queryBuilder.andWhere(
+        '(user.username ILIKE :search OR user.email ILIKE :search)',
+        { search: `%${search}%` },
+      );
+    }
+
+    if (status) {
+      queryBuilder.andWhere('user.status = :status', { status });
+    }
+
+    queryBuilder
+      .select([
+        'user.id',
+        'user.username',
+        'user.display_name',
+        'user.email',
+        'user.role',
+        'user.role_id',
+        'user.status',
+        'user.created_at',
+        'user.updated_at',
+      ])
+      .orderBy('user.created_at', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    const [items, total] = await queryBuilder.getManyAndCount();
+
+    // Return items without transformation
+    return {
+      items,
+      total,
+      page,
+      limit,
+    };
   }
 
   async findOne(id: string): Promise<User> {
@@ -99,6 +151,18 @@ export class UsersService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
+
+    // Fetch profile separately
+    try {
+      const profile = await this.userProfileRepository.findOne({
+        where: { user_id: id },
+      });
+      (user as any).profile = profile;
+    } catch (error) {
+      // Profile doesn't exist, that's okay
+      (user as any).profile = null;
+    }
+
     return user;
   }
 
@@ -125,6 +189,10 @@ export class UsersService {
   }
 
   async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
+    // Hash password if provided
+    if (updateUserDto.password) {
+      updateUserDto.password = await bcrypt.hash(updateUserDto.password, 10);
+    }
     await this.userRepository.update(id, updateUserDto);
     return this.findOne(id);
   }
@@ -197,8 +265,21 @@ export class UsersService {
 
   async uploadProfilePicture(
     userId: string,
-    filename: string,
+    fileBuffer: Buffer,
+    originalFilename: string,
   ): Promise<UserProfile> {
+    // Generate unique filename
+    const timestamp = Date.now();
+    const ext = originalFilename.split('.').pop();
+    const filename = `profile-${userId}-${timestamp}.${ext}`;
+
+    // Upload to R2
+    const fileUrl = await this.cloudflareService.uploadFile(
+      fileBuffer,
+      filename,
+      'profile-pictures',
+    );
+
     const profile = await this.userProfileRepository.findOne({
       where: { user_id: userId },
     });
@@ -207,26 +288,22 @@ export class UsersService {
       // Create profile if it doesn't exist
       const newProfile = await this.createProfile({
         user_id: userId,
-        profile_picture: filename,
+        profile_picture: fileUrl,
       });
       return newProfile;
     }
 
-    // Delete old profile picture if exists
+    // Delete old profile picture from R2 if exists
     if (profile.profile_picture) {
-      const oldFilePath = path.join(
-        process.cwd(),
-        'uploads',
-        'profile-pictures',
-        profile.profile_picture,
-      );
-      if (fs.existsSync(oldFilePath)) {
-        fs.unlinkSync(oldFilePath);
+      try {
+        await this.cloudflareService.deleteFile(profile.profile_picture);
+      } catch (error) {
+        console.error('Failed to delete old profile picture:', error);
       }
     }
 
     await this.userProfileRepository.update(profile.id, {
-      profile_picture: filename,
+      profile_picture: fileUrl,
     });
     return this.getProfile(userId);
   }
@@ -240,16 +317,12 @@ export class UsersService {
       throw new NotFoundException('User profile not found');
     }
 
-    // Delete profile picture file if exists
+    // Delete profile picture from R2 if exists
     if (profile.profile_picture) {
-      const filePath = path.join(
-        process.cwd(),
-        'uploads',
-        'profile-pictures',
-        profile.profile_picture,
-      );
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
+      try {
+        await this.cloudflareService.deleteFile(profile.profile_picture);
+      } catch (error) {
+        console.error('Failed to delete profile picture:', error);
       }
     }
 

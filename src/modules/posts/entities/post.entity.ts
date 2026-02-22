@@ -48,7 +48,7 @@ export class Post {
   @Column()
   user_id: string;
 
-  @Column()
+  @Column({ nullable: true })
   category_id: string;
 
   @Column({ type: 'enum', enum: PostStatus, nullable: true })
