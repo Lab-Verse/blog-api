@@ -4,6 +4,7 @@ import {
   Post,
   Body,
   Param,
+  Query,
   UseGuards,
   HttpException,
   HttpStatus,
@@ -11,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { AuditLogsService } from './audit-logs.service';
 import { CreateAuditLogDto } from './dto/create-audit-log.dto';
+import { QueryAuditLogsDto } from './dto/query-audit-logs.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('audit-logs')
@@ -28,8 +30,13 @@ export class AuditLogsController {
   }
 
   @Get()
-  async findAll() {
-    return this.auditLogsService.findAll();
+  async findAll(@Query() queryDto: QueryAuditLogsDto) {
+    return this.auditLogsService.findAll(queryDto);
+  }
+
+  @Get(':id')
+  async findOne(@Param('id') id: string) {
+    return this.auditLogsService.findOne(id);
   }
 
   @Get('user/:userId')

@@ -10,6 +10,7 @@ import {
   HttpException,
   HttpStatus,
   UseInterceptors,
+  Request,
 } from '@nestjs/common';
 import { CommentRepliesService } from './comment-replies.service';
 import { CreateCommentReplyDto } from './dto/create-comment-reply.dto';
@@ -26,12 +27,24 @@ export class CommentRepliesController {
 
   @Post()
   @Audit({ action: 'CREATE_REPLY', resource: 'CommentReply' })
-  async create(@Body() createCommentReplyDto: CreateCommentReplyDto) {
+  async create(
+    @Body() createCommentReplyDto: CreateCommentReplyDto,
+    @Request() req: any,
+  ) {
     try {
-      return await this.commentRepliesService.create(createCommentReplyDto);
+      const replyData = {
+        ...createCommentReplyDto,
+        user_id: req?.user?.id,
+      };
+      return await this.commentRepliesService.create(replyData);
     } catch (error) {
       throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
     }
+  }
+
+  @Get('comment/:commentId')
+  async findByComment(@Param('commentId') commentId: string) {
+    return this.commentRepliesService.findByComment(commentId);
   }
 
   @Get(':id')
@@ -52,10 +65,5 @@ export class CommentRepliesController {
   @Audit({ action: 'DELETE_REPLY', resource: 'CommentReply' })
   async remove(@Param('id') id: string) {
     return this.commentRepliesService.remove(id);
-  }
-
-  @Get('comment/:commentId')
-  async findByComment(@Param('commentId') commentId: string) {
-    return this.commentRepliesService.findByComment(commentId);
   }
 }

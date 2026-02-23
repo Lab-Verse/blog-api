@@ -18,7 +18,7 @@ export enum QuestionStatus {
 
 @Entity('questions')
 export class Question {
-  @PrimaryGeneratedColumn()
+  @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Column()

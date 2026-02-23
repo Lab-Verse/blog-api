@@ -13,7 +13,7 @@ export class CreateViewDto {
   @IsString()
   viewable_id: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
   ip_address: string;
 }

@@ -6,10 +6,12 @@ import {
   Patch,
   Param,
   Delete,
+  Query,
   UseGuards,
   HttpException,
   HttpStatus,
   UseInterceptors,
+  Request,
 } from '@nestjs/common';
 import { CommentsService } from './comments.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
@@ -26,16 +28,23 @@ export class CommentsController {
 
   @Post()
   @Audit({ action: 'CREATE_COMMENT', resource: 'Comment' })
-  async create(@Body() createCommentDto: CreateCommentDto) {
+  async create(@Body() createCommentDto: CreateCommentDto, @Request() req: any) {
     try {
-      return await this.commentsService.create(createCommentDto);
+      const commentData = {
+        ...createCommentDto,
+        user_id: req.user.id,
+      };
+      return await this.commentsService.create(commentData);
     } catch (error) {
       throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
     }
   }
 
   @Get()
-  async findAll() {
+  async findAll(@Query('postId') postId?: string) {
+    if (postId) {
+      return this.commentsService.findByPostId(postId);
+    }
     return this.commentsService.findAll();
   }
 

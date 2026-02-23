@@ -21,7 +21,14 @@ export class AnswersService {
     return this.answerRepository.save(answer);
   }
 
-  async findAll(): Promise<Answer[]> {
+  async findAll(questionId?: string): Promise<Answer[]> {
+    if (questionId) {
+      return this.answerRepository.find({
+        where: { question_id: questionId },
+        relations: ['user', 'question'],
+      });
+    }
+
     return this.answerRepository.find({ relations: ['user', 'question'] });
   }
 

@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { Comment } from './entities/comment.entity';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { UpdateCommentDto } from './dto/update-comment.dto';
@@ -39,6 +39,17 @@ export class CommentsService {
 
   async findAll(): Promise<Comment[]> {
     return this.commentRepository.find({ relations: ['user', 'post'] });
+  }
+
+  async findByPostId(postId: string): Promise<Comment[]> {
+    if (!postId) {
+      throw new BadRequestException('Invalid post ID');
+    }
+    return this.commentRepository.find({
+      where: { post_id: postId, parent_id: IsNull() },
+      relations: ['user', 'post'],
+      order: { created_at: 'DESC' },
+    });
   }
 
   async findOne(id: string): Promise<Comment> {

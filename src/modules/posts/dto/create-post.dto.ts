@@ -7,6 +7,7 @@ import {
   IsArray,
   IsUUID,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export enum PostStatus {
   DRAFT = 'draft',
@@ -46,6 +47,12 @@ export class CreatePostDto {
   @IsOptional()
   @IsArray()
   @IsUUID('4', { each: true })
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      try { return JSON.parse(value); } catch { return []; }
+    }
+    return value;
+  })
   category_ids?: string[]; // Array of category IDs for many-to-many
 
   @IsOptional()
@@ -59,4 +66,26 @@ export class CreatePostDto {
   @IsOptional()
   @IsDateString()
   published_at?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      try { return JSON.parse(value); } catch { return []; }
+    }
+    return value;
+  })
+  tag_ids?: string[]; // Array of tag IDs
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      try { return JSON.parse(value); } catch { return []; }
+    }
+    return value;
+  })
+  media_ids?: string[]; // Array of media IDs to attach to post
 }

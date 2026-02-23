@@ -11,13 +11,13 @@ import {
   UseInterceptors,
   Req,
   UploadedFile,
+  UploadedFiles,
 } from '@nestjs/common';
-import { Request } from 'express';
-import { FileInterceptor } from '@nestjs/platform-express';
+import type { Request } from 'express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { PostsService } from './posts.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
-import { ViewsService } from '../views/views.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AuditInterceptor } from '../../common/interceptors/audit.interceptor';
 import { Audit } from '../../common/decorators/audit.decorator';
@@ -28,9 +28,67 @@ import { CloudflareService } from '../../common/services/cloudflare.service';
 export class PostsController {
   constructor(
     private readonly postsService: PostsService,
-    private readonly viewsService: ViewsService,
     private readonly cloudflareService: CloudflareService,
   ) {}
+
+  private normalizeArrayField(value: unknown): string[] | undefined {
+    if (value === undefined || value === null || value === '') {
+      return undefined;
+    }
+
+    if (Array.isArray(value)) {
+      const normalized = value
+        .map((item) => String(item ?? '').trim())
+        .filter(Boolean);
+      return normalized.length > 0 ? normalized : [];
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) return undefined;
+
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          const normalized = parsed
+            .map((item) => String(item ?? '').trim())
+            .filter(Boolean);
+          return normalized.length > 0 ? normalized : [];
+        }
+        if (typeof parsed === 'string') {
+          const single = parsed.trim();
+          return single ? [single] : [];
+        }
+      } catch {
+        const normalized = trimmed
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean);
+        return normalized.length > 0 ? normalized : [];
+      }
+    }
+
+    return undefined;
+  }
+
+  private normalizeArrayFieldFromDtoAndRaw(
+    dtoValue: unknown,
+    rawValue: unknown,
+  ): string[] | undefined {
+    const normalizedFromRaw = this.normalizeArrayField(rawValue);
+    const normalizedFromDto = this.normalizeArrayField(dtoValue);
+
+    if (
+      Array.isArray(normalizedFromDto) &&
+      normalizedFromDto.length === 0 &&
+      Array.isArray(normalizedFromRaw) &&
+      normalizedFromRaw.length > 0
+    ) {
+      return normalizedFromRaw;
+    }
+
+    return normalizedFromDto ?? normalizedFromRaw;
+  }
 
   @Post()
   @UseGuards(JwtAuthGuard)
@@ -51,6 +109,21 @@ export class PostsController {
     if (req.user?.id) {
       createPostDto.user_id = req.user.id;
     }
+
+    // Normalize array fields from both transformed DTO and raw body (multipart/json)
+    const rawBody = req.body as Record<string, unknown>;
+    createPostDto.tag_ids = this.normalizeArrayFieldFromDtoAndRaw(
+      createPostDto.tag_ids,
+      rawBody?.tag_ids,
+    );
+    createPostDto.media_ids = this.normalizeArrayFieldFromDtoAndRaw(
+      createPostDto.media_ids,
+      rawBody?.media_ids,
+    );
+    createPostDto.category_ids = this.normalizeArrayFieldFromDtoAndRaw(
+      createPostDto.category_ids,
+      rawBody?.category_ids,
+    );
 
     // Upload image to Cloudflare R2 if provided
     let imageUrl: string | undefined;
@@ -77,28 +150,51 @@ export class PostsController {
 
   @Get(':id')
   @Audit({ action: 'VIEW_POST', resource: 'Post' })
-  async findOne(
-    @Param('id') id: string,
-    @Req() req: Request & { user?: { id: string } },
-  ) {
+  async findOne(@Param('id') id: string) {
     const post = await this.postsService.findOne(id);
-    await this.postsService.incrementViews(id);
-
-    // Create view record
-    await this.viewsService.create({
-      user_id: req.user?.id,
-      viewable_type: 'post',
-      viewable_id: id,
-      ip_address: req.ip || req.socket?.remoteAddress || 'unknown',
-    });
-
     return post;
   }
 
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+    FileInterceptor('featured_image', {
+      limits: { fileSize: 10 * 1024 * 1024 },
+    }),
+  )
   @Audit({ action: 'UPDATE_POST', resource: 'Post' })
-  async update(@Param('id') id: string, @Body() updatePostDto: UpdatePostDto) {
+  async update(
+    @Param('id') id: string,
+    @Body() updatePostDto: UpdatePostDto,
+    @UploadedFile() file: Express.Multer.File,
+    @Req() req: Request,
+  ) {
+    // Normalize array fields from both transformed DTO and raw body (multipart/json)
+    const rawBody = req.body as Record<string, unknown>;
+    updatePostDto.tag_ids = this.normalizeArrayFieldFromDtoAndRaw(
+      updatePostDto.tag_ids,
+      rawBody?.tag_ids,
+    );
+    updatePostDto.media_ids = this.normalizeArrayFieldFromDtoAndRaw(
+      updatePostDto.media_ids,
+      rawBody?.media_ids,
+    );
+    updatePostDto.category_ids = this.normalizeArrayFieldFromDtoAndRaw(
+      updatePostDto.category_ids,
+      rawBody?.category_ids,
+    );
+
+    if (file) {
+      const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}-${file.originalname}`;
+      const imageUrl = await this.cloudflareService.uploadFile(file.buffer, filename, 'post-images');
+      updatePostDto.featured_image = imageUrl;
+
+      const existingMediaIds = Array.isArray(updatePostDto.media_ids)
+        ? updatePostDto.media_ids
+        : [];
+      updatePostDto.media_ids = Array.from(new Set([...existingMediaIds, imageUrl]));
+    }
+
     return this.postsService.update(id, updatePostDto);
   }
 
@@ -127,5 +223,29 @@ export class PostsController {
   @Get(':id/reactions')
   async getReactions(@Param('id') id: string) {
     return this.postsService.getReactions(id);
+  }
+
+  @Post('upload-media')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+    FilesInterceptor('images', 10, {
+      limits: { fileSize: 10 * 1024 * 1024 },
+    }),
+  )
+  async uploadMedia(
+    @UploadedFiles() files: Express.Multer.File[],
+    @Req() req: Request & { user?: { id: string } },
+  ) {
+    const uploadedUrls = [];
+    for (const file of files) {
+      const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}-${file.originalname}`;
+      const url = await this.cloudflareService.uploadFile(
+        file.buffer,
+        filename,
+        'post-images',
+      );
+      uploadedUrls.push(url);
+    }
+    return { urls: uploadedUrls };
   }
 }

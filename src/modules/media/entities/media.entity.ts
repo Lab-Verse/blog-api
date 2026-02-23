@@ -11,7 +11,7 @@ import { User } from '../../users/entities/user.entity';
 
 @Entity('media')
 export class Media {
-  @PrimaryGeneratedColumn()
+  @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Column()

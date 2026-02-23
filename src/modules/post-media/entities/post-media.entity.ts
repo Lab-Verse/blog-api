@@ -11,7 +11,7 @@ import { Media } from '../../media/entities/media.entity';
 
 @Entity('post_media')
 export class PostMedia {
-  @PrimaryGeneratedColumn()
+  @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Column()

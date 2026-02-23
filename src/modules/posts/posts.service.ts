@@ -8,6 +8,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Post } from './entities/post.entity';
 import { PostCategory } from '../post-categories/entities/post-category.entity';
+import { PostMedia } from '../post-media/entities/post-media.entity';
+import { Media } from '../media/entities/media.entity';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 
@@ -18,7 +20,75 @@ export class PostsService {
     private postRepository: Repository<Post>,
     @InjectRepository(PostCategory)
     private postCategoryRepository: Repository<PostCategory>,
+    @InjectRepository(PostMedia)
+    private postMediaRepository: Repository<PostMedia>,
+    @InjectRepository(Media)
+    private mediaRepository: Repository<Media>,
   ) {}
+
+  private readonly uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+  private isUuid(value: string): boolean {
+    return this.uuidRegex.test(value);
+  }
+
+  private isUrlLike(value: string): boolean {
+    return (
+      value.startsWith('http://') ||
+      value.startsWith('https://') ||
+      value.startsWith('/')
+    );
+  }
+
+  private inferMimeTypeFromUrl(url: string): string {
+    const cleanUrl = url.split('?')[0].toLowerCase();
+    if (cleanUrl.endsWith('.jpg') || cleanUrl.endsWith('.jpeg')) return 'image/jpeg';
+    if (cleanUrl.endsWith('.png')) return 'image/png';
+    if (cleanUrl.endsWith('.gif')) return 'image/gif';
+    if (cleanUrl.endsWith('.webp')) return 'image/webp';
+    if (cleanUrl.endsWith('.svg')) return 'image/svg+xml';
+    if (cleanUrl.endsWith('.mp4')) return 'video/mp4';
+    if (cleanUrl.endsWith('.mov')) return 'video/quicktime';
+    if (cleanUrl.endsWith('.pdf')) return 'application/pdf';
+    return 'application/octet-stream';
+  }
+
+  private extractFilenameFromUrl(url: string): string {
+    const cleanUrl = url.split('?')[0];
+    const segments = cleanUrl.split('/').filter(Boolean);
+    return segments[segments.length - 1] || `media-${Date.now()}`;
+  }
+
+  private async resolveMediaIdsForUpdate(
+    rawMediaIds: string[],
+    ownerUserId: string,
+  ): Promise<string[]> {
+    const resolved: string[] = [];
+
+    for (const item of rawMediaIds) {
+      if (this.isUuid(item)) {
+        resolved.push(item);
+        continue;
+      }
+
+      if (this.isUrlLike(item)) {
+        const filename = this.extractFilenameFromUrl(item);
+        const media = this.mediaRepository.create({
+          user_id: ownerUserId,
+          filename,
+          file_path: item,
+          file_url: item,
+          mime_type: this.inferMimeTypeFromUrl(item),
+          file_size: 0,
+        });
+        const savedMedia = await this.mediaRepository.save(media);
+        resolved.push(savedMedia.id);
+      }
+    }
+
+    return Array.from(new Set(resolved));
+  }
 
   async create(createPostDto: CreatePostDto, imageUrl?: string): Promise<Post> {
     try {
@@ -45,6 +115,17 @@ export class PostsService {
             category_id: categoryId,
           });
           await this.postCategoryRepository.save(postCategory);
+        }
+      }
+
+      // Handle media attachments
+      if (createPostDto.media_ids && createPostDto.media_ids.length > 0) {
+        for (const mediaId of createPostDto.media_ids) {
+          const postMedia = this.postMediaRepository.create({
+            post_id: savedPost.id,
+            media_id: mediaId,
+          });
+          await this.postMediaRepository.save(postMedia);
         }
       }
 
@@ -94,7 +175,7 @@ export class PostsService {
 
     const post = await this.postRepository.findOne({
       where: { id },
-      relations: ['user', 'category', 'postCategories', 'postCategories.category'],
+      relations: ['user', 'category', 'postCategories', 'postCategories.category', 'media', 'media.media'],
     });
 
     if (!post) {
@@ -125,10 +206,43 @@ export class PostsService {
   }
 
   async update(id: string, updatePostDto: UpdatePostDto): Promise<Post> {
-    const result = await this.postRepository.update(id, updatePostDto);
-    if (result.affected === 0) {
+    const { tag_ids, media_ids, category_ids, ...postData } = updatePostDto;
+
+    const existingPost = await this.postRepository.findOne({ where: { id } });
+    if (!existingPost) {
       throw new NotFoundException(`Post not found with id: ${id}`);
     }
+    
+    const result = await this.postRepository.update(id, postData);
+    // Update media relationships
+    if (media_ids !== undefined) {
+      const normalizedMediaIds = (media_ids || [])
+        .map((mediaId) => String(mediaId ?? '').trim())
+        .filter(Boolean);
+
+      const resolvedMediaIds = await this.resolveMediaIdsForUpdate(
+        normalizedMediaIds,
+        existingPost.user_id,
+      );
+
+      await this.postMediaRepository.delete({ post_id: id });
+      if (resolvedMediaIds.length > 0) {
+        for (const mediaId of resolvedMediaIds) {
+          await this.postMediaRepository.save({ post_id: id, media_id: mediaId });
+        }
+      }
+    }
+
+    // Update category relationships
+    if (category_ids !== undefined) {
+      await this.postCategoryRepository.delete({ post_id: id });
+      if (category_ids.length > 0) {
+        for (const categoryId of category_ids) {
+          await this.postCategoryRepository.save({ post_id: id, category_id: categoryId });
+        }
+      }
+    }
+
     return this.findOne(id);
   }
 
