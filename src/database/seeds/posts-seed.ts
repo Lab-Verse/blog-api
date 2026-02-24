@@ -938,10 +938,9 @@ function getUnsplashImageUrl(keywords: string, index: number): string {
   // Get image array for the keyword or use a default
   const keywordKey = keywords.split(',')[0].trim().toLowerCase();
   const images = imageCollections[keywordKey] || imageCollections['world'];
-  
+
   return images[index % images.length];
 }
-
 async function seedPosts() {
   console.log('🌱 Starting Posts Seeding...\n');
 
