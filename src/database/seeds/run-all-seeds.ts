@@ -1,17 +1,17 @@
 import seed from './seed';
-import comprehensiveSeed from './comprehensive-seed';
 import visitorPermissionsSeed from './visitor-permissions-seed';
-import postsPerCategorySeed from './posts-per-category-seed';
+import seedCategories from './categories-seed';
+import seedPosts from './posts-seed';
 
 async function runAllSeeds() {
   console.log('🚀 Running all seed files...\n');
-  
+
   try {
     await seed();
-    await comprehensiveSeed();
     await visitorPermissionsSeed();
-    await postsPerCategorySeed();
-    
+    await seedCategories();
+    await seedPosts();
+
     console.log('\n✅ All seeds completed successfully!');
     process.exit(0);
   } catch (error) {

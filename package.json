@@ -21,6 +21,8 @@
     "seed:comprehensive": "ts-node -r tsconfig-paths/register src/database/seeds/comprehensive-seed.ts",
     "seed:visitor": "ts-node -r tsconfig-paths/register src/database/seeds/visitor-permissions-seed.ts",
     "seed:posts-per-category": "ts-node -r tsconfig-paths/register src/database/seeds/posts-per-category-seed.ts",
+    "seed:categories": "ts-node -r tsconfig-paths/register src/database/seeds/categories-seed.ts",
+    "seed:posts": "ts-node -r tsconfig-paths/register src/database/seeds/posts-seed.ts",
     "seed:all": "ts-node -r tsconfig-paths/register src/database/seeds/run-all-seeds.ts",
     "db:clear": "ts-node -r tsconfig-paths/register src/database/seeds/clear-database.ts",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
