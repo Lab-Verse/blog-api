@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -12,11 +12,12 @@ import { UsersModule } from '../users/users.module';
 import { RolesModule } from '../roles/roles.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { EmailService } from './email.service';
+import { RolesGuard } from '../../common/guards/roles.guard';
 
 @Module({
   imports: [
     UsersModule,
-    RolesModule,
+    forwardRef(() => RolesModule),
     PassportModule,
     TypeOrmModule.forFeature([RefreshToken]),
     AuditLogsModule,
@@ -31,7 +32,7 @@ import { EmailService } from './email.service';
     ConfigModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, JwtAuthGuard, EmailService],
-  exports: [AuthService, JwtAuthGuard],
+  providers: [AuthService, JwtStrategy, JwtAuthGuard, EmailService, RolesGuard],
+  exports: [AuthService, JwtAuthGuard, EmailService, RolesGuard],
 })
 export class AuthModule {}

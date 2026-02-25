@@ -18,6 +18,7 @@ import { PostCategory } from '../../post-categories/entities/post-category.entit
 
 export enum PostStatus {
   DRAFT = 'draft',
+  PENDING = 'pending',
   PUBLISHED = 'published',
   ARCHIVED = 'archived',
 }

@@ -74,7 +74,7 @@ async function seed() {
     console.log('✓ Role-Permissions assigned');
 
     // Admin User
-    const adminEmail = 'admin@example.com';
+    const adminEmail = 'abidchaudhry063@gmail.com';
     const adminExists = await userRepo.findOne({
       where: { email: adminEmail },
     });
@@ -89,7 +89,7 @@ async function seed() {
         role_id: superAdminRole.id,
         status: UserStatus.ACTIVE,
       });
-      console.log('✓ Admin created: admin@example.com / password123');
+      console.log('✓ Admin created: abidchaudhry063@gmail.com / password123');
     } else {
       console.log('✓ Admin already exists');
     }

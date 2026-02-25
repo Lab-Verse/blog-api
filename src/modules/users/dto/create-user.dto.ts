@@ -10,6 +10,7 @@ import { Transform } from 'class-transformer';
 import { Role } from '../../../common/enums/role.enum';
 
 export enum UserStatus {
+  PENDING = 'pending',
   ACTIVE = 'active',
   INACTIVE = 'inactive',
   BANNED = 'banned',

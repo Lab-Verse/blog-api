@@ -4,6 +4,7 @@ import {
   ConflictException,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -17,6 +18,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { CreateUserDto } from '../users/dto/create-user.dto';
+import { UserStatus } from '../users/entities/user.entity';
 
 import { RolesService } from '../roles/roles.service';
 import { EmailService } from './email.service';
@@ -53,34 +55,38 @@ export class AuthService {
       }
     }
 
-    const hashedPassword = await bcrypt.hash(dto.password, 10);
-
+    // Note: usersService.create() handles password hashing
+    // Set status to PENDING for all new registrations - admin must verify
     const userPayload: CreateUserDto = {
       username: dto.username,
       email: dto.email,
-      password: hashedPassword,
+      password: dto.password, // Plain password - usersService.create() will hash it
       role: dto.role || 'visitor',
-      status: dto.status,
+      status: UserStatus.PENDING,
     };
 
     const user = await this.usersService.create(userPayload);
 
-    // Generate tokens for auto-login after registration
-    const payload = { sub: user.id, email: user.email, role_id: user.role_id };
-    const accessToken = this.jwtService.sign(payload, { expiresIn: '7d' });
-    const refreshToken = await this.generateRefreshToken(user.id);
+    // Send notification email to admin for verification
+    try {
+      await this.emailService.sendNewUserRegistrationNotification({
+        id: user.id,
+        username: user.username,
+        email: user.email,
+      });
+    } catch (emailError) {
+      console.error('Failed to send admin notification email:', emailError);
+      // Don't fail registration if email fails
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, ...result } = user;
     return {
       success: true,
-      message: 'User registered successfully',
+      message: 'Registration successful! Your account is pending admin verification. You will receive an email once approved.',
       data: {
         user: result,
-        tokens: {
-          accessToken,
-          refreshToken: refreshToken.token,
-        },
+        // No tokens returned - user must wait for admin verification
       },
     };
   }
@@ -123,6 +129,97 @@ export class AuthService {
         refreshToken: refreshToken.token,
         user: userResult,
       },
+    };
+  }
+
+  // Frontend user login - checks user status
+  async frontLogin(dto: LoginDto) {
+    const user = await this.usersService.findByEmailWithPassword(dto.email);
+
+    if (!user) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const passwordMatch = await bcrypt.compare(dto.password, user.password);
+
+    if (!passwordMatch) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    // Check user status - must be ACTIVE to login
+    if (user.status === UserStatus.PENDING) {
+      throw new ForbiddenException('Your account is pending admin verification. Please wait for approval.');
+    }
+
+    if (user.status === UserStatus.INACTIVE) {
+      throw new ForbiddenException('Your account has been deactivated. Please contact support.');
+    }
+
+    if (user.status === UserStatus.BANNED) {
+      throw new ForbiddenException('Your account has been banned. Please contact support.');
+    }
+
+    const payload = { sub: user.id, email: user.email, role_id: user.role_id };
+
+    const accessToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+    const refreshToken = await this.generateRefreshToken(user.id);
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password, ...userResult } = user;
+    return {
+      success: true,
+      message: 'Login successful',
+      data: {
+        accessToken,
+        refreshToken: refreshToken.token,
+        user: userResult,
+      },
+    };
+  }
+
+  // Admin verify user - changes status from PENDING to ACTIVE
+  async verifyUser(userId: string) {
+    const user = await this.usersService.findOne(userId);
+    
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.status !== UserStatus.PENDING) {
+      throw new BadRequestException('User is not in pending status');
+    }
+
+    await this.usersService.update(userId, { status: UserStatus.ACTIVE });
+
+    // Send notification email to user
+    try {
+      await this.emailService.sendUserVerifiedNotification({
+        email: user.email,
+        username: user.username,
+      });
+    } catch (emailError) {
+      console.error('Failed to send verification notification email:', emailError);
+    }
+
+    return {
+      success: true,
+      message: 'User verified successfully',
+    };
+  }
+
+  // Admin reject user - changes status to INACTIVE
+  async rejectUser(userId: string, reason?: string) {
+    const user = await this.usersService.findOne(userId);
+    
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    await this.usersService.update(userId, { status: UserStatus.INACTIVE });
+
+    return {
+      success: true,
+      message: 'User rejected successfully',
     };
   }
 

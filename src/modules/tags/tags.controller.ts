@@ -19,12 +19,12 @@ import { AuditInterceptor } from '../../common/interceptors/audit.interceptor';
 import { Audit } from '../../common/decorators/audit.decorator';
 
 @Controller('tags')
-@UseGuards(JwtAuthGuard)
 @UseInterceptors(AuditInterceptor)
 export class TagsController {
   constructor(private readonly tagsService: TagsService) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard)
   @Audit({ action: 'CREATE_TAG', resource: 'Tag' })
   async create(@Body() createTagDto: CreateTagDto) {
     try {
@@ -45,12 +45,14 @@ export class TagsController {
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard)
   @Audit({ action: 'UPDATE_TAG', resource: 'Tag' })
   async update(@Param('id') id: string, @Body() updateTagDto: UpdateTagDto) {
     return this.tagsService.update(id, updateTagDto);
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard)
   @Audit({ action: 'DELETE_TAG', resource: 'Tag' })
   async remove(@Param('id') id: string) {
     return this.tagsService.remove(id);

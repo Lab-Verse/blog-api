@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PostsService } from './posts.service';
 import { PostsController } from './posts.controller';
@@ -9,12 +9,16 @@ import { Media } from '../media/entities/media.entity';
 import { ViewsModule } from '../views/views.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { CloudflareService } from '../../common/services/cloudflare.service';
+import { AuthModule } from '../auth/auth.module';
+import { RolesModule } from '../roles/roles.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Post, PostCategory, PostMedia, Media]),
     ViewsModule,
     AuditLogsModule,
+    forwardRef(() => AuthModule),
+    RolesModule,
   ],
   controllers: [PostsController],
   providers: [PostsService, CloudflareService],

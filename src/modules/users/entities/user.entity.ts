@@ -8,6 +8,7 @@ import {
 } from 'typeorm';
 import { Report } from '../../reports/entities/report.entity';
 export enum UserStatus {
+  PENDING = 'pending',
   ACTIVE = 'active',
   INACTIVE = 'inactive',
   BANNED = 'banned',

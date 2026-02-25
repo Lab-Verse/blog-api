@@ -6,12 +6,13 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Post } from './entities/post.entity';
+import { Post, PostStatus } from './entities/post.entity';
 import { PostCategory } from '../post-categories/entities/post-category.entity';
 import { PostMedia } from '../post-media/entities/post-media.entity';
 import { Media } from '../media/entities/media.entity';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
+import { EmailService } from '../auth/email.service';
 
 @Injectable()
 export class PostsService {
@@ -24,6 +25,7 @@ export class PostsService {
     private postMediaRepository: Repository<PostMedia>,
     @InjectRepository(Media)
     private mediaRepository: Repository<Media>,
+    private emailService: EmailService,
   ) {}
 
   private readonly uuidRegex =
@@ -319,5 +321,116 @@ export class PostsService {
     }
 
     return post.reactions;
+  }
+
+  // Submit post for approval - sets status to PENDING and notifies admin
+  async submitForApproval(postId: string): Promise<Post> {
+    const post = await this.postRepository.findOne({
+      where: { id: postId },
+      relations: ['user'],
+    });
+
+    if (!post) {
+      throw new NotFoundException(`Post not found with id: ${postId}`);
+    }
+
+    await this.postRepository.update(postId, { status: PostStatus.PENDING });
+
+    // Notify admin about new post submission
+    try {
+      await this.emailService.sendNewPostSubmissionNotification({
+        id: post.id,
+        title: post.title,
+        authorName: post.user?.username || 'Unknown',
+        authorEmail: post.user?.email || '',
+      });
+    } catch (emailError) {
+      console.error('Failed to send post submission notification:', emailError);
+    }
+
+    return this.findOne(postId);
+  }
+
+  // Admin approve post - sets status to PUBLISHED
+  async approvePost(postId: string): Promise<{ success: boolean; message: string }> {
+    const post = await this.postRepository.findOne({
+      where: { id: postId },
+      relations: ['user'],
+    });
+
+    if (!post) {
+      throw new NotFoundException(`Post not found with id: ${postId}`);
+    }
+
+    if (post.status !== PostStatus.PENDING) {
+      throw new BadRequestException('Post is not in pending status');
+    }
+
+    await this.postRepository.update(postId, { status: PostStatus.PUBLISHED });
+
+    // Notify author about post approval
+    if (post.user?.email) {
+      try {
+        await this.emailService.sendPostApprovedNotification({
+          title: post.title,
+          slug: post.slug,
+          authorEmail: post.user.email,
+          authorName: post.user.username || 'User',
+        });
+      } catch (emailError) {
+        console.error('Failed to send post approval notification:', emailError);
+      }
+    }
+
+    return {
+      success: true,
+      message: 'Post approved and published successfully',
+    };
+  }
+
+  // Admin reject post - sets status back to DRAFT
+  async rejectPost(postId: string, reason?: string): Promise<{ success: boolean; message: string }> {
+    const post = await this.postRepository.findOne({
+      where: { id: postId },
+      relations: ['user'],
+    });
+
+    if (!post) {
+      throw new NotFoundException(`Post not found with id: ${postId}`);
+    }
+
+    if (post.status !== PostStatus.PENDING) {
+      throw new BadRequestException('Post is not in pending status');
+    }
+
+    await this.postRepository.update(postId, { status: PostStatus.DRAFT });
+
+    // Notify author about post rejection
+    if (post.user?.email) {
+      try {
+        await this.emailService.sendPostRejectedNotification({
+          title: post.title,
+          authorEmail: post.user.email,
+          authorName: post.user.username || 'User',
+          reason,
+        });
+      } catch (emailError) {
+        console.error('Failed to send post rejection notification:', emailError);
+      }
+    }
+
+    return {
+      success: true,
+      message: 'Post rejected successfully',
+    };
+  }
+
+  // Get all pending posts for admin review
+  async findPendingPosts(): Promise<Post[]> {
+    return this.postRepository.find({
+      where: { status: PostStatus.PENDING },
+      relations: ['user', 'category', 'postCategories', 'postCategories.category'],
+      order: { created_at: 'DESC' },
+    });
   }
 }

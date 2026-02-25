@@ -22,6 +22,8 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AuditInterceptor } from '../../common/interceptors/audit.interceptor';
 import { Audit } from '../../common/decorators/audit.decorator';
 import { CloudflareService } from '../../common/services/cloudflare.service';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 
 @Controller('posts')
 @UseInterceptors(AuditInterceptor)
@@ -247,5 +249,39 @@ export class PostsController {
       uploadedUrls.push(url);
     }
     return { urls: uploadedUrls };
+  }
+
+  // Submit post for admin approval
+  @Post(':id/submit-for-approval')
+  @UseGuards(JwtAuthGuard)
+  @Audit({ action: 'SUBMIT_POST_FOR_APPROVAL', resource: 'Post' })
+  async submitForApproval(@Param('id') id: string) {
+    return this.postsService.submitForApproval(id);
+  }
+
+  // Admin: Get all pending posts
+  @Get('admin/pending')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'super_admin')
+  async findPendingPosts() {
+    return this.postsService.findPendingPosts();
+  }
+
+  // Admin: Approve a post
+  @Post('admin/:id/approve')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'super_admin')
+  @Audit({ action: 'ADMIN_APPROVE_POST', resource: 'Post' })
+  async approvePost(@Param('id') id: string) {
+    return this.postsService.approvePost(id);
+  }
+
+  // Admin: Reject a post
+  @Post('admin/:id/reject')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'super_admin')
+  @Audit({ action: 'ADMIN_REJECT_POST', resource: 'Post' })
+  async rejectPost(@Param('id') id: string, @Body('reason') reason?: string) {
+    return this.postsService.rejectPost(id, reason);
   }
 }

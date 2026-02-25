@@ -21,8 +21,18 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
         : null;
     const path: string = routePath || request.url.split('?')[0];
 
-    // Skip JWT auth for auth routes
-    if (path.startsWith('/auth')) {
+    // Skip JWT auth for public auth routes (not admin routes)
+    const publicAuthRoutes = [
+      '/auth/login',
+      '/auth/register',
+      '/auth/front-login',
+      '/auth/forgot-password',
+      '/auth/reset-password',
+      '/auth/refresh',
+      '/auth/refresh-token',
+    ];
+    
+    if (publicAuthRoutes.some(route => path.startsWith(route))) {
       return true;
     }
 
