@@ -150,6 +150,12 @@ export class PostsController {
     return this.postsService.findAll({ categoryId, userId });
   }
 
+  @Get('stats')
+  @UseGuards(JwtAuthGuard)
+  async getStats(@Query('userId') userId: string) {
+    return this.postsService.getStats(userId);
+  }
+
   @Get(':id')
   @Audit({ action: 'VIEW_POST', resource: 'Post' })
   async findOne(@Param('id') id: string) {

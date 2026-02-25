@@ -433,4 +433,33 @@ export class PostsService {
       order: { created_at: 'DESC' },
     });
   }
+
+  // Get post stats for a user (dashboard)
+  async getStats(userId: string) {
+    const allPosts = await this.postRepository.find({
+      where: { user_id: userId },
+    });
+
+    const published = allPosts.filter(p => p.status === PostStatus.PUBLISHED);
+    const drafts = allPosts.filter(p => p.status === PostStatus.DRAFT);
+    const archived = allPosts.filter(p => p.status === PostStatus.ARCHIVED);
+
+    const totalViews = allPosts.reduce((sum, p) => sum + (p.views_count || 0), 0);
+    const totalLikes = allPosts.reduce((sum, p) => sum + (p.likes_count || 0), 0);
+    const totalComments = allPosts.reduce((sum, p) => sum + (p.comments_count || 0), 0);
+    const totalPosts = allPosts.length;
+
+    return {
+      totalPosts,
+      publishedPosts: published.length,
+      draftPosts: drafts.length,
+      archivedPosts: archived.length,
+      totalViews,
+      totalLikes,
+      totalComments,
+      avgViewsPerPost: totalPosts > 0 ? totalViews / totalPosts : 0,
+      avgLikesPerPost: totalPosts > 0 ? totalLikes / totalPosts : 0,
+      avgCommentsPerPost: totalPosts > 0 ? totalComments / totalPosts : 0,
+    };
+  }
 }

@@ -18,12 +18,12 @@ import { AuditInterceptor } from '../../common/interceptors/audit.interceptor';
 import { Audit } from '../../common/decorators/audit.decorator';
 
 @Controller('bookmarks')
-@UseGuards(JwtAuthGuard)
 @UseInterceptors(AuditInterceptor)
 export class BookmarksController {
   constructor(private readonly bookmarksService: BookmarksService) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard)
   @Audit({ action: 'CREATE_BOOKMARK', resource: 'Bookmark' })
   async create(@Body() createBookmarkDto: CreateBookmarkDto) {
     try {
@@ -39,6 +39,7 @@ export class BookmarksController {
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard)
   @Audit({ action: 'DELETE_BOOKMARK', resource: 'Bookmark' })
   async remove(@Param('id') id: string) {
     return this.bookmarksService.remove(id);

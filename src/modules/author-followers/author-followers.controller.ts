@@ -17,7 +17,6 @@ import { AuditInterceptor } from '../../common/interceptors/audit.interceptor';
 import { Audit } from '../../common/decorators/audit.decorator';
 
 @Controller('author-followers')
-@UseGuards(JwtAuthGuard)
 @UseInterceptors(AuditInterceptor)
 export class AuthorFollowersController {
   constructor(
@@ -25,6 +24,7 @@ export class AuthorFollowersController {
   ) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard)
   @Audit({ action: 'FOLLOW_AUTHOR', resource: 'AuthorFollower' })
   async create(@Body() createAuthorFollowerDto: CreateAuthorFollowerDto) {
     try {
@@ -45,6 +45,7 @@ export class AuthorFollowersController {
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard)
   @Audit({ action: 'UNFOLLOW_AUTHOR', resource: 'AuthorFollower' })
   async remove(@Param('id') id: string) {
     if (!id || id.trim() === '') {

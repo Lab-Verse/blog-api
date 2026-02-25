@@ -166,6 +166,31 @@ export class UsersService {
     return user;
   }
 
+  async findByUsername(username: string): Promise<User> {
+    if (!username) {
+      throw new BadRequestException('Username is required');
+    }
+    const user = await this.userRepository.findOne({
+      where: { username },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User not found with username: ${username}`);
+    }
+
+    // Fetch profile separately
+    try {
+      const profile = await this.userProfileRepository.findOne({
+        where: { user_id: user.id },
+      });
+      (user as any).profile = profile;
+    } catch (error) {
+      (user as any).profile = null;
+    }
+
+    return user;
+  }
+
   async findByEmail(email: string): Promise<User | null> {
     return this.userRepository.findOne({
       where: { email },

@@ -27,12 +27,12 @@ import { AuditInterceptor } from '../../common/interceptors/audit.interceptor';
 import { Audit } from '../../common/decorators/audit.decorator';
 
 @Controller('users')
-@UseGuards(JwtAuthGuard)
 @UseInterceptors(AuditInterceptor)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard)
   @Audit({ action: 'CREATE_USER', resource: 'User' })
   async create(@Body() createUserDto: CreateUserDto) {
     try {
@@ -56,18 +56,25 @@ export class UsersController {
     return this.usersService.findAll(pageNum, limitNum, search, status);
   }
 
+  @Get('username/:username')
+  async findByUsername(@Param('username') username: string) {
+    return this.usersService.findByUsername(username);
+  }
+
   @Get(':id')
   async findOne(@Param('id') id: string) {
     return this.usersService.findOne(id);
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard)
   @Audit({ action: 'UPDATE_USER', resource: 'User' })
   async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
     return this.usersService.update(id, updateUserDto);
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard)
   @Audit({ action: 'DELETE_USER', resource: 'User' })
   async remove(@Param('id') id: string) {
     return this.usersService.remove(id);
@@ -116,6 +123,7 @@ export class UsersController {
   }
 
   @Post(':id/profile')
+  @UseGuards(JwtAuthGuard)
   @UseInterceptors(
     FileInterceptor('profile_picture', {
       storage: diskStorage({
@@ -145,6 +153,7 @@ export class UsersController {
   }
 
   @Patch(':id/profile')
+  @UseGuards(JwtAuthGuard)
   @Audit({ action: 'UPDATE_USER_PROFILE', resource: 'UserProfile' })
   async updateProfile(
     @Param('id') id: string,
@@ -154,6 +163,7 @@ export class UsersController {
   }
 
   @Post(':id/profile/upload')
+  @UseGuards(JwtAuthGuard)
   @UseInterceptors(
     FileInterceptor('file', {
       fileFilter: (req, file, cb) => {
@@ -177,6 +187,7 @@ export class UsersController {
   }
 
   @Delete(':id/profile')
+  @UseGuards(JwtAuthGuard)
   @Audit({ action: 'DELETE_USER_PROFILE', resource: 'UserProfile' })
   async deleteProfile(@Param('id') id: string) {
     return this.usersService.deleteProfile(id);
