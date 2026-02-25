@@ -16,10 +16,12 @@ async function bootstrap() {
   app.useGlobalFilters(new HttpExceptionFilter());
 
   const configService = app.get(ConfigService);
-  const frontendUrl = configService.get<string>('FRONTEND_URL'); // Fetch the FRONTEND_URL from .env
+  const frontendUrlStr = configService.get<string>('FRONTEND_URL') || '';
+  // Support comma-separated origins (e.g. "http://localhost:3001,https://watt.com.pk")
+  const origins = frontendUrlStr.split(',').map((s) => s.trim()).filter(Boolean);
 
   app.enableCors({
-    origin: frontendUrl, // Set the origin dynamically from .env
+    origin: origins.length === 1 ? origins[0] : origins,
     credentials: true,
   });
 
