@@ -75,14 +75,15 @@ async function seed() {
 
     // Admin User
     const adminEmail = 'abidchaudhry063@gmail.com';
+    const adminUsername = 'admin';
     const adminExists = await userRepo.findOne({
-      where: { email: adminEmail },
+      where: [{ email: adminEmail }, { username: adminUsername }],
     });
 
     if (!adminExists) {
       const hashedPassword = await bcrypt.hash('password123', 10);
       await userRepo.save({
-        username: 'admin',
+        username: adminUsername,
         email: adminEmail,
         password: hashedPassword,
         role: RoleEnum.SUPER_ADMIN,
@@ -91,7 +92,12 @@ async function seed() {
       });
       console.log('✓ Admin created: abidchaudhry063@gmail.com / password123');
     } else {
-      console.log('✓ Admin already exists');
+      // Update existing admin to ensure correct role
+      adminExists.role = RoleEnum.SUPER_ADMIN;
+      adminExists.role_id = superAdminRole.id;
+      adminExists.status = UserStatus.ACTIVE;
+      await userRepo.save(adminExists);
+      console.log('✓ Admin already exists (updated role/status)');
     }
 
     console.log('\n✅ Basic seeding completed!');

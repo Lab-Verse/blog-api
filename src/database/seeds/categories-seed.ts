@@ -120,7 +120,7 @@ async function seedCategories() {
 
     // Fetch the admin user
     const adminUser = await userRepo.findOne({
-      where: { email: 'admin@example.com' },
+      where: { username: 'admin' },
     });
 
     if (!adminUser) {
