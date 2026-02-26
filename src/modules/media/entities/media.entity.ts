@@ -32,6 +32,12 @@ export class Media {
   @Column('bigint')
   file_size: number;
 
+  @Column({ nullable: true })
+  wp_attachment_id?: string;
+
+  @Column({ nullable: true })
+  original_url?: string;
+
   @CreateDateColumn()
   created_at: Date;
 
