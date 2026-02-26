@@ -1,4 +1,6 @@
-import * as cheerio from 'cheerio';
+/* eslint-disable @typescript-eslint/no-unsafe-argument */
+import { load } from 'cheerio';
+import type { AnyNode } from 'domhandler';
 
 // ─── Variant Suffix Pattern ─────────────────────────────────────────────────
 // Matches WordPress thumbnail suffixes like -300x200, -1024x682, -2048x405-1
@@ -170,10 +172,10 @@ export function rewritePostContent(
   html = videoResult.html;
 
   // Phase 2: Use cheerio for DOM-based URL rewriting
-  const $ = cheerio.load(html, { xmlMode: false });
+  const $ = load(html, { xmlMode: false });
 
   // Rewrite <img> src attributes
-  $('img').each((_i, el) => {
+  $('img').each((_i: number, el: AnyNode) => {
     const $el = $(el);
     const src = $el.attr('src');
     if (src && src.includes('twa.com.pk/wp-content/uploads')) {
@@ -189,7 +191,7 @@ export function rewritePostContent(
     if (srcset && srcset.includes('twa.com.pk/wp-content/uploads')) {
       const newSrcset = srcset.replace(
         WP_UPLOAD_URL_REGEX,
-        (url) => findReplacementUrl(url, urlRewriteMap) || url,
+        (url: string) => findReplacementUrl(url, urlRewriteMap) || url,
       );
       if (newSrcset !== srcset) {
         $el.attr('srcset', newSrcset);
@@ -199,7 +201,7 @@ export function rewritePostContent(
   });
 
   // Rewrite <a href> attributes pointing to WordPress uploads
-  $('a').each((_i, el) => {
+  $('a').each((_i: number, el: AnyNode) => {
     const $el = $(el);
     const href = $el.attr('href');
     if (href && href.includes('twa.com.pk/wp-content/uploads')) {
@@ -212,7 +214,7 @@ export function rewritePostContent(
   });
 
   // Rewrite <source src> inside <video> tags
-  $('source').each((_i, el) => {
+  $('source').each((_i: number, el: AnyNode) => {
     const $el = $(el);
     const src = $el.attr('src');
     if (src && src.includes('twa.com.pk/wp-content/uploads')) {
@@ -233,7 +235,7 @@ export function rewritePostContent(
 
   // Also handle any remaining raw WordPress URLs in text/attributes
   // that cheerio might not have caught (e.g., in inline styles)
-  finalHtml = finalHtml.replace(WP_UPLOAD_URL_REGEX, (url) => {
+  finalHtml = finalHtml.replace(WP_UPLOAD_URL_REGEX, (url: string) => {
     const replacement = findReplacementUrl(url, urlRewriteMap);
     if (replacement && replacement !== url) {
       urlsRewritten++;
