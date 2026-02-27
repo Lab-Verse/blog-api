@@ -15,6 +15,7 @@ import {
   ImportPostDto,
 } from './dto/import.dto';
 import * as bcrypt from 'bcrypt';
+import * as fs from 'fs';
 
 @Injectable()
 export class ImportService {
@@ -426,5 +427,79 @@ export class ImportService {
 
   private async hashPassword(password: string): Promise<string> {
     return bcrypt.hash(password, 10);
+  }
+
+  /**
+   * Import from a JSON file on disk (avoids body size limits for large files).
+   */
+  async importFromFile(jsonFilePath: string): Promise<{
+    categories: ImportResponseDto;
+    authors: ImportResponseDto;
+    posts: ImportResponseDto;
+  }> {
+    this.logger.log('Importing from file: ' + jsonFilePath);
+    if (!fs.existsSync(jsonFilePath)) {
+      throw new Error('File not found: ' + jsonFilePath);
+    }
+    const raw = fs.readFileSync(jsonFilePath, 'utf-8');
+    const data: ImportDataDto = JSON.parse(raw);
+    this.logger.log(
+      'File parsed: ' + (data.categories?.length || 0) + ' categories, ' +
+        (data.authors?.length || 0) + ' authors, ' +
+        (data.posts?.length || 0) + ' posts',
+    );
+    return this.importAll(data);
+  }
+
+  /**
+   * Backfill guid values on existing posts by matching titles
+   * from the WordPress JSON export file.
+   */
+  async backfillGuids(jsonFilePath: string): Promise<{
+    matched: number;
+    unmatched: number;
+    alreadySet: number;
+    errors: string[];
+  }> {
+    this.logger.log('Backfilling guids from file: ' + jsonFilePath);
+    if (!fs.existsSync(jsonFilePath)) {
+      throw new Error('File not found: ' + jsonFilePath);
+    }
+    const raw = fs.readFileSync(jsonFilePath, 'utf-8');
+    const data: ImportDataDto = JSON.parse(raw);
+
+    const titleToGuid = new Map<string, string>();
+    for (const post of data.posts) {
+      if (post.title && post.guid) {
+        titleToGuid.set(post.title.trim().toLowerCase(), post.guid);
+      }
+    }
+    this.logger.log('Built title->guid map with ' + titleToGuid.size + ' entries');
+
+    const allPosts = await this.postRepository.find();
+
+    let matched = 0;
+    let unmatched = 0;
+    let alreadySet = 0;
+    const errors: string[] = [];
+
+    for (const post of allPosts) {
+      if (post.guid) {
+        alreadySet++;
+        continue;
+      }
+      const key = (post.title || '').trim().toLowerCase();
+      const guid = titleToGuid.get(key);
+      if (guid) {
+        post.guid = guid;
+        await this.postRepository.save(post);
+        matched++;
+      } else {
+        unmatched++;
+      }
+    }
+
+    this.logger.log('Backfill complete: matched=' + matched + ', unmatched=' + unmatched + ', alreadySet=' + alreadySet);
+    return { matched, unmatched, alreadySet, errors };
   }
 }

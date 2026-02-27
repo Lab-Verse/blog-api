@@ -48,6 +48,26 @@ export class ImportController {
     return this.importService.importAll(data);
   }
 
+  /**
+   * Import from a JSON file on disk — avoids body size limits for large WordPress export files.
+   * Body: { "filePath": "/path/to/theworldambassador_posts.json" }
+   */
+  @Post('from-file')
+  @HttpCode(HttpStatus.OK)
+  async importFromFile(@Body('filePath') filePath: string) {
+    return this.importService.importFromFile(filePath);
+  }
+
+  /**
+   * Backfill guid values on existing posts by matching titles from the WordPress JSON export.
+   * Body: { "filePath": "/path/to/theworldambassador_posts.json" }
+   */
+  @Post('backfill-guids')
+  @HttpCode(HttpStatus.OK)
+  async backfillGuids(@Body('filePath') filePath: string) {
+    return this.importService.backfillGuids(filePath);
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
   // MEDIA IMPORT ENDPOINTS (Phases 1–4)
   // ═══════════════════════════════════════════════════════════════════════════
