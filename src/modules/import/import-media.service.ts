@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like } from 'typeorm';
+import * as fs from 'fs';
 import { Media } from '../media/entities/media.entity';
 import { Post } from '../posts/entities/post.entity';
 import { PostMedia } from '../post-media/entities/post-media.entity';
@@ -553,6 +554,127 @@ export class ImportMediaService {
       rewrite: rewriteResult,
       featured: featuredResult,
     };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // IMPORT FROM LOCAL MAPPING — Python script → DB records + Rewrite + Featured
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Import media from a mapping JSON file produced by the local Python upload script.
+   * Creates Media records in DB, then runs Phase 3 (rewrite) and Phase 4 (featured).
+   */
+  async importFromMapping(
+    mappingJsonPath: string,
+    xmlFilePath: string,
+    userId: string,
+  ): Promise<{
+    mediaCreated: number;
+    mediaSkipped: number;
+    variantsMapped: number;
+    rewrite: ImportMediaRewriteResultDto;
+    featured: ImportMediaFeaturedResultDto;
+  }> {
+    this.logger.log(`Importing media mapping from: ${mappingJsonPath}`);
+
+    // Clear state
+    this.urlRewriteMap.clear();
+    this.cachedParseResult = null;
+
+    // Read the mapping JSON
+    const mappingContent = fs.readFileSync(mappingJsonPath, 'utf-8');
+    const mapping = JSON.parse(mappingContent) as {
+      attachments: Array<{
+        wpId: string;
+        originalUrl: string;
+        r2Url: string;
+        filename: string;
+        filePath: string;
+        mimeType: string;
+        fileSize: number;
+      }>;
+      variants: Array<{
+        variantUrl: string;
+        originalUrl: string;
+        r2Url: string;
+      }>;
+      featuredImageMap: Record<string, string>;
+    };
+
+    let mediaCreated = 0;
+    let mediaSkipped = 0;
+
+    // Step 1: Create Media records for each attachment
+    this.logger.log(
+      `Creating Media records for ${mapping.attachments.length} attachments...`,
+    );
+
+    for (const att of mapping.attachments) {
+      // Idempotency check
+      const existing = await this.mediaRepository.findOne({
+        where: { wp_attachment_id: att.wpId },
+      });
+
+      if (existing) {
+        // Still populate rewrite map
+        this.urlRewriteMap.set(att.originalUrl, existing.file_url);
+        this.urlRewriteMap.set(
+          att.originalUrl.replace(/^http:\/\//, 'https://'),
+          existing.file_url,
+        );
+        mediaSkipped++;
+        continue;
+      }
+
+      const media = this.mediaRepository.create({
+        user_id: userId,
+        filename: att.filename,
+        file_path: att.filePath,
+        file_url: att.r2Url,
+        mime_type: att.mimeType,
+        file_size: att.fileSize,
+        wp_attachment_id: att.wpId,
+        original_url: att.originalUrl,
+      });
+      await this.mediaRepository.save(media);
+
+      // Populate URL rewrite map
+      this.urlRewriteMap.set(att.originalUrl, att.r2Url);
+      this.urlRewriteMap.set(
+        att.originalUrl.replace(/^http:\/\//, 'https://'),
+        att.r2Url,
+      );
+      mediaCreated++;
+    }
+
+    // Step 2: Add variant URL mappings to rewrite map
+    let variantsMapped = 0;
+    for (const variant of mapping.variants) {
+      this.urlRewriteMap.set(variant.variantUrl, variant.r2Url);
+      this.urlRewriteMap.set(
+        variant.variantUrl.replace(/^http:\/\//, 'https://'),
+        variant.r2Url,
+      );
+      variantsMapped++;
+    }
+
+    this.logger.log(
+      `Media records: created=${mediaCreated}, skipped=${mediaSkipped}, ` +
+        `variants mapped=${variantsMapped}, ` +
+        `URL rewrite map: ${this.urlRewriteMap.size} entries`,
+    );
+
+    // Step 3: Run Phase 3 — rewrite post content
+    this.logger.log('Running Phase 3: Rewrite post content...');
+    const rewrite = await this.rewriteContent(50);
+    this.logger.log('Phase 3 complete ✅');
+
+    // Step 4: Run Phase 4 — link featured images
+    this.logger.log('Running Phase 4: Link featured images...');
+    const featured = await this.linkFeaturedImages(xmlFilePath);
+    this.logger.log('Phase 4 complete ✅');
+
+    return { mediaCreated, mediaSkipped, variantsMapped, rewrite, featured };
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

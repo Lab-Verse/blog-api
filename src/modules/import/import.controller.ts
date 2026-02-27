@@ -97,4 +97,25 @@ export class ImportController {
   async importAllMedia(@Body() dto: ImportMediaDto) {
     return this.importMediaService.importAllMedia(dto);
   }
+
+  /**
+   * Import from local mapping JSON (produced by Python upload script).
+   * Creates Media records + rewrites content + links featured images.
+   */
+  @Post('media/import-mapping')
+  @HttpCode(HttpStatus.OK)
+  async importMapping(
+    @Body()
+    body: {
+      mappingJsonPath: string;
+      xmlFilePath: string;
+      userId: string;
+    },
+  ) {
+    return this.importMediaService.importFromMapping(
+      body.mappingJsonPath,
+      body.xmlFilePath,
+      body.userId,
+    );
+  }
 }
