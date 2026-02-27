@@ -146,14 +146,39 @@ export class PostsController {
   async findAll(
     @Query('category') categoryId?: string,
     @Query('user') userId?: string,
+    @Query('limit') limitStr?: string,
+    @Query('page') pageStr?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortOrder') sortOrder?: 'ASC' | 'DESC',
+    @Query('search') search?: string,
   ) {
-    return this.postsService.findAll({ categoryId, userId });
+    const limit = limitStr ? Math.min(Math.max(parseInt(limitStr, 10) || 20, 1), 100) : 20;
+    const page = pageStr ? Math.max(parseInt(pageStr, 10) || 1, 1) : 1;
+    return this.postsService.findAll({ categoryId, userId, limit, page, sortBy, sortOrder, search });
   }
 
   @Get('stats')
   @UseGuards(JwtAuthGuard)
   async getStats(@Query('userId') userId: string) {
     return this.postsService.getStats(userId);
+  }
+
+  @Get('search')
+  async search(
+    @Query('q') query?: string,
+    @Query('limit') limitStr?: string,
+    @Query('page') pageStr?: string,
+  ) {
+    const limit = limitStr ? Math.min(Math.max(parseInt(limitStr, 10) || 20, 1), 100) : 20;
+    const page = pageStr ? Math.max(parseInt(pageStr, 10) || 1, 1) : 1;
+    return this.postsService.search(query || '', limit, page);
+  }
+
+  @Get('slug/:slug')
+  @Audit({ action: 'VIEW_POST', resource: 'Post' })
+  async findBySlug(@Param('slug') slug: string) {
+    const post = await this.postsService.findBySlug(slug);
+    return post;
   }
 
   @Get(':id')

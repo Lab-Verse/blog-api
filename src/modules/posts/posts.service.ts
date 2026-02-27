@@ -152,10 +152,42 @@ export class PostsService {
   async findAll(filters?: {
     categoryId?: string;
     userId?: string;
-  }): Promise<Post[]> {
+    limit?: number;
+    page?: number;
+    sortBy?: string;
+    sortOrder?: 'ASC' | 'DESC';
+    search?: string;
+  }): Promise<{ data: Post[]; total: number; limit: number; page: number }> {
+    const limit = filters?.limit ?? 20;
+    const page = filters?.page ?? 1;
+    const offset = (page - 1) * limit;
+
     const query = this.postRepository.createQueryBuilder('post')
+      .select([
+        'post.id',
+        'post.title',
+        'post.slug',
+        'post.excerpt',
+        'post.description',
+        'post.featured_image',
+        'post.user_id',
+        'post.category_id',
+        'post.status',
+        'post.views_count',
+        'post.likes_count',
+        'post.comments_count',
+        'post.published_at',
+        'post.created_at',
+        'post.updated_at',
+        'post.post_date_gmt',
+        'post.post_modified_gmt',
+        'post.guid',
+      ])
+      .leftJoinAndSelect('post.user', 'user')
       .leftJoinAndSelect('post.postCategories', 'postCategories')
-      .leftJoinAndSelect('postCategories.category', 'category');
+      .leftJoinAndSelect('postCategories.category', 'category')
+      .leftJoinAndSelect('post.tags', 'postTags')
+      .leftJoinAndSelect('postTags.tag', 'tag');
 
     if (filters?.categoryId) {
       query.andWhere('category.id = :categoryId', {
@@ -167,7 +199,85 @@ export class PostsService {
       query.andWhere('post.user_id = :userId', { userId: filters.userId });
     }
 
-    return query.getMany();
+    if (filters?.search) {
+      query.andWhere(
+        '(post.title ILIKE :search OR post.excerpt ILIKE :search OR post.description ILIKE :search)',
+        { search: `%${filters.search}%` },
+      );
+    }
+
+    // Sorting
+    const allowedSortFields = ['created_at', 'updated_at', 'published_at', 'views_count', 'likes_count', 'comments_count', 'title'];
+    const sortField = filters?.sortBy && allowedSortFields.includes(filters.sortBy)
+      ? `post.${filters.sortBy}`
+      : 'post.created_at';
+    const sortOrder = filters?.sortOrder === 'ASC' ? 'ASC' : 'DESC';
+    query.orderBy(sortField, sortOrder);
+
+    // Pagination
+    query.skip(offset).take(limit);
+
+    const [data, total] = await query.getManyAndCount();
+    return { data, total, limit, page };
+  }
+
+  async findBySlug(slug: string): Promise<Post> {
+    if (!slug) {
+      throw new BadRequestException('Invalid post slug');
+    }
+
+    const post = await this.postRepository.findOne({
+      where: { slug },
+      relations: ['user', 'category', 'postCategories', 'postCategories.category', 'media', 'media.media', 'tags', 'tags.tag'],
+    });
+
+    if (!post) {
+      throw new NotFoundException(`Post not found with slug: ${slug}`);
+    }
+
+    return post;
+  }
+
+  async search(query: string, limit: number = 20, page: number = 1): Promise<{ data: Post[]; total: number; limit: number; page: number }> {
+    const offset = (page - 1) * limit;
+
+    const qb = this.postRepository.createQueryBuilder('post')
+      .select([
+        'post.id',
+        'post.title',
+        'post.slug',
+        'post.excerpt',
+        'post.description',
+        'post.featured_image',
+        'post.user_id',
+        'post.category_id',
+        'post.status',
+        'post.views_count',
+        'post.likes_count',
+        'post.comments_count',
+        'post.published_at',
+        'post.created_at',
+        'post.updated_at',
+      ])
+      .leftJoinAndSelect('post.user', 'user')
+      .leftJoinAndSelect('post.postCategories', 'postCategories')
+      .leftJoinAndSelect('postCategories.category', 'category')
+      .leftJoinAndSelect('post.tags', 'postTags')
+      .leftJoinAndSelect('postTags.tag', 'tag');
+
+    if (query) {
+      qb.where(
+        '(post.title ILIKE :q OR post.excerpt ILIKE :q OR post.description ILIKE :q OR post.content ILIKE :q)',
+        { q: `%${query}%` },
+      );
+    }
+
+    qb.orderBy('post.created_at', 'DESC')
+      .skip(offset)
+      .take(limit);
+
+    const [data, total] = await qb.getManyAndCount();
+    return { data, total, limit, page };
   }
 
   async findOne(id: string): Promise<Post> {
