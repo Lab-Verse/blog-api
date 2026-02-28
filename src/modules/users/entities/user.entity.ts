@@ -43,6 +43,9 @@ export class User {
   @Column({ type: 'enum', enum: UserStatus, nullable: true })
   status: UserStatus;
 
+  @Column({ default: false })
+  can_publish: boolean;
+
   @CreateDateColumn()
   created_at: Date;
 

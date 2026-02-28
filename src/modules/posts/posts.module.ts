@@ -6,6 +6,7 @@ import { Post } from './entities/post.entity';
 import { PostCategory } from '../post-categories/entities/post-category.entity';
 import { PostMedia } from '../post-media/entities/post-media.entity';
 import { Media } from '../media/entities/media.entity';
+import { User } from '../users/entities/user.entity';
 import { ViewsModule } from '../views/views.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { CloudflareService } from '../../common/services/cloudflare.service';
@@ -14,7 +15,7 @@ import { RolesModule } from '../roles/roles.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Post, PostCategory, PostMedia, Media]),
+    TypeOrmModule.forFeature([Post, PostCategory, PostMedia, Media, User]),
     ViewsModule,
     AuditLogsModule,
     forwardRef(() => AuthModule),

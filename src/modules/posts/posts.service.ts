@@ -10,6 +10,7 @@ import { Post, PostStatus } from './entities/post.entity';
 import { PostCategory } from '../post-categories/entities/post-category.entity';
 import { PostMedia } from '../post-media/entities/post-media.entity';
 import { Media } from '../media/entities/media.entity';
+import { User } from '../users/entities/user.entity';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { EmailService } from '../auth/email.service';
@@ -25,6 +26,8 @@ export class PostsService {
     private postMediaRepository: Repository<PostMedia>,
     @InjectRepository(Media)
     private mediaRepository: Repository<Media>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
     private emailService: EmailService,
   ) {}
 
@@ -99,8 +102,21 @@ export class PostsService {
         createPostDto.featured_image = imageUrl;
       }
 
+      // Check if the author has can_publish permission
+      let postStatus = createPostDto.status || PostStatus.DRAFT;
+      if (createPostDto.user_id && postStatus === PostStatus.PUBLISHED) {
+        const author = await this.userRepository.findOne({
+          where: { id: createPostDto.user_id },
+        });
+        // If author doesn't have can_publish permission, set to PENDING for admin approval
+        if (author && !author.can_publish) {
+          postStatus = PostStatus.PENDING;
+        }
+      }
+
       const post = this.postRepository.create({
         ...createPostDto,
+        status: postStatus,
         featured_image: createPostDto.featured_image || undefined,
         views_count: 0,
         likes_count: 0,

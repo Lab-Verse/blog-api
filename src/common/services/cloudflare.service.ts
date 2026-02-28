@@ -42,6 +42,7 @@ export class CloudflareService {
     this.s3Client = new S3Client({
       region: 'auto',
       endpoint,
+      forcePathStyle: true,
       credentials: {
         accessKeyId,
         secretAccessKey,

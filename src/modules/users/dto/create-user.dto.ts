@@ -5,6 +5,7 @@ import {
   IsEnum,
   IsOptional,
   IsUUID,
+  IsBoolean,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { Role } from '../../../common/enums/role.enum';
@@ -46,4 +47,8 @@ export class CreateUserDto {
   @IsEnum(UserStatus)
   @Transform(({ value }) => value || UserStatus.ACTIVE)
   status?: UserStatus = UserStatus.ACTIVE;
+
+  @IsOptional()
+  @IsBoolean()
+  can_publish?: boolean = false;
 }

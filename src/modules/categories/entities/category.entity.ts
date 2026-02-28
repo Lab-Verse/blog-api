@@ -33,6 +33,9 @@ export class Category {
   @Column({ default: true })
   is_active: boolean;
 
+  @Column({ nullable: true })
+  image_url?: string;
+
   @CreateDateColumn()
   created_at: Date;
 

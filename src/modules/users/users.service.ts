@@ -143,6 +143,7 @@ export class UsersService {
         'user.role',
         'user.role_id',
         'user.status',
+        'user.can_publish',
         'user.created_at',
         'user.updated_at',
       ])
@@ -229,9 +230,23 @@ export class UsersService {
   }
 
   async findByEmailWithPassword(email: string): Promise<User | null> {
-    return this.userRepository.findOne({
+    const user = await this.userRepository.findOne({
       where: { email },
     });
+
+    if (user) {
+      // Attach profile data so login response includes it
+      try {
+        const profile = await this.userProfileRepository.findOne({
+          where: { user_id: user.id },
+        });
+        (user as any).profile = profile || null;
+      } catch {
+        (user as any).profile = null;
+      }
+    }
+
+    return user;
   }
 
   async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
@@ -297,12 +312,23 @@ export class UsersService {
     userId: string,
     updateProfileDto: UpdateUserProfileDto,
   ): Promise<UserProfile> {
-    const profile = await this.userProfileRepository.findOne({
+    // Verify the user exists first
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    let profile = await this.userProfileRepository.findOne({
       where: { user_id: userId },
     });
 
     if (!profile) {
-      throw new NotFoundException('User profile not found');
+      // Auto-create profile if it doesn't exist (upsert pattern)
+      const newProfile = this.userProfileRepository.create({
+        user_id: userId,
+        ...updateProfileDto,
+      });
+      return this.userProfileRepository.save(newProfile);
     }
 
     await this.userProfileRepository.update(profile.id, updateProfileDto);
