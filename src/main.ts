@@ -17,8 +17,11 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
   const frontendUrlStr = configService.get<string>('FRONTEND_URL') || '';
+  const adminUrlStr = configService.get<string>('ADMIN_PANEL_URL') || '';
   // Support comma-separated origins (e.g. "http://localhost:3001,https://watt.com.pk")
-  const origins = frontendUrlStr.split(',').map((s) => s.trim()).filter(Boolean);
+  const origins = [...frontendUrlStr.split(','), ...adminUrlStr.split(',')]
+    .map((s) => s.trim())
+    .filter(Boolean);
 
   app.enableCors({
     origin: origins.length === 1 ? origins[0] : origins,
@@ -29,4 +32,4 @@ async function bootstrap() {
   await app.listen(port);
   console.log(`Application is running on: http://localhost:${port}`);
 }
-bootstrap();
+void bootstrap();
