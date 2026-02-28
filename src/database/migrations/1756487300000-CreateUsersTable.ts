@@ -30,7 +30,7 @@ export class CreateUsersTable1756487300000 implements MigrationInterface {
           {
             name: 'status',
             type: 'enum',
-            enum: ['active', 'inactive', 'banned'],
+            enum: ['pending', 'active', 'inactive', 'banned'],
             isNullable: true,
           },
           {
