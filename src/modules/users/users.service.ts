@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Not, FindOptionsWhere, FindOptionsOrder } from 'typeorm';
@@ -77,7 +78,22 @@ export class UsersService {
       ...createUserDto,
       password: hashedPassword,
     });
-    return this.userRepository.save(user);
+    try {
+      return await this.userRepository.save(user);
+    } catch (error: any) {
+      // Handle unique constraint violations (Postgres error code 23505)
+      if (error?.code === '23505') {
+        const detail = error?.detail || '';
+        if (detail.includes('username')) {
+          throw new ConflictException('Username already exists');
+        }
+        if (detail.includes('email')) {
+          throw new ConflictException('Email already exists');
+        }
+        throw new ConflictException('A user with this information already exists');
+      }
+      throw error;
+    }
   }
 
   async findAll(
@@ -164,6 +180,11 @@ export class UsersService {
     }
 
     return user;
+  }
+
+  async findByUsernameOrNull(username: string): Promise<User | null> {
+    if (!username) return null;
+    return this.userRepository.findOne({ where: { username } });
   }
 
   async findByUsername(username: string): Promise<User> {

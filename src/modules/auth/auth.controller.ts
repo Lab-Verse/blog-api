@@ -7,6 +7,7 @@ import {
   UseInterceptors,
   Param,
   UseGuards,
+  Req,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -79,8 +80,9 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @Audit({ action: 'USER_LOGOUT', resource: 'User' })
-  async logout(@Body() dto: RefreshTokenDto) {
-    return this.authService.logout(dto.refreshToken);
+  async logout(@Body() body: { refreshToken?: string }, @Req() req: any) {
+    const userId = req?.user?.id;
+    return this.authService.logout(body?.refreshToken, userId);
   }
 
   @Post('forgot-password')
