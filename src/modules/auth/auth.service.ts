@@ -45,11 +45,12 @@ export class AuthService {
       throw new ConflictException('Email already exists');
     }
 
-    // Check username uniqueness
     const existingUsername = await this.usersService.findByUsernameOrNull(dto.username);
     if (existingUsername) {
       throw new ConflictException('Username already exists');
     }
+
+    // Allow any role value, don't restrict to enum
 
     // ✅ check if role_id exists in DB (assuming you have a Role entity/table)
     if (dto.role_id) {
@@ -257,17 +258,10 @@ export class AuthService {
     };
   }
 
-  async logout(refreshToken?: string, userId?: string) {
+  async logout(refreshToken?: string) {
     if (refreshToken) {
-      // Revoke specific refresh token
       await this.refreshTokenRepository.update(
         { token: refreshToken },
-        { is_revoked: true },
-      );
-    } else if (userId) {
-      // Revoke all refresh tokens for this user
-      await this.refreshTokenRepository.update(
-        { user_id: userId, is_revoked: false },
         { is_revoked: true },
       );
     }

@@ -59,6 +59,10 @@ export class UsersService {
     private cloudflareService: CloudflareService,
   ) {}
 
+  async findByUsernameOrNull(username: string): Promise<User | null> {
+    return this.userRepository.findOne({ where: { username } });
+  }
+
   async create(createUserDto: CreateUserDto): Promise<User> {
     // Hash password
     const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
@@ -78,12 +82,13 @@ export class UsersService {
       ...createUserDto,
       password: hashedPassword,
     });
+
     try {
       return await this.userRepository.save(user);
     } catch (error: any) {
-      // Handle unique constraint violations (Postgres error code 23505)
+      // Handle Postgres unique constraint violations (code 23505)
       if (error?.code === '23505') {
-        const detail = error?.detail || '';
+        const detail: string = error?.detail || '';
         if (detail.includes('username')) {
           throw new ConflictException('Username already exists');
         }
@@ -180,11 +185,6 @@ export class UsersService {
     }
 
     return user;
-  }
-
-  async findByUsernameOrNull(username: string): Promise<User | null> {
-    if (!username) return null;
-    return this.userRepository.findOne({ where: { username } });
   }
 
   async findByUsername(username: string): Promise<User> {
