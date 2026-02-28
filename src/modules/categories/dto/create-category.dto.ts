@@ -2,9 +2,9 @@ import {
   IsNotEmpty,
   IsString,
   IsOptional,
-  IsNumber,
   IsBoolean,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class CreateCategoryDto {
   @IsNotEmpty()
@@ -16,11 +16,19 @@ export class CreateCategoryDto {
   slug: string;
 
   @IsOptional()
-  @IsNumber()
+  @IsString()
+  @Transform(({ value }) => value === '' || value === 'null' || value === null || value === undefined ? undefined : value)
   parent_id?: string;
 
   @IsOptional()
   @IsBoolean()
+  @Transform(({ value }) => {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'string') {
+      return value === 'true' || value === '1';
+    }
+    return Boolean(value);
+  })
   is_active?: boolean;
 
   @IsOptional()

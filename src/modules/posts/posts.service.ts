@@ -375,10 +375,18 @@ export class PostsService {
   }
 
   async remove(id: string): Promise<void> {
-    const result = await this.postRepository.delete(id);
-    if (result.affected === 0) {
+    // First find the post with relations to properly cascade delete
+    const post = await this.postRepository.findOne({
+      where: { id },
+      relations: ['media', 'tags', 'comments', 'reactions'],
+    });
+    
+    if (!post) {
       throw new NotFoundException(`Post not found with id: ${id}`);
     }
+
+    // Use remove() which respects TypeORM cascade settings
+    await this.postRepository.remove(post);
   }
 
   async getComments(postId: string) {

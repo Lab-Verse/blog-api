@@ -1,12 +1,14 @@
 import {
   Controller,
   Post,
+  Get,
   Body,
   HttpCode,
   HttpStatus,
   UseInterceptors,
   Param,
   UseGuards,
+  Request,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -44,6 +46,12 @@ export class AuthController {
   @Audit({ action: 'USER_FRONT_LOGIN', resource: 'User' })
   async frontLogin(@Body() dto: LoginDto) {
     return this.authService.frontLogin(dto);
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  async getMe(@Request() req: any) {
+    return this.authService.getMe(req.user.sub);
   }
 
   @Post('admin/verify-user/:id')

@@ -182,6 +182,18 @@ export class AuthService {
     };
   }
 
+  // Get current authenticated user
+  async getMe(userId: string) {
+    const user = await this.usersService.findOne(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    return {
+      success: true,
+      data: user,
+    };
+  }
+
   // Admin verify user - changes status from PENDING to ACTIVE
   async verifyUser(userId: string) {
     const user = await this.usersService.findOne(userId);
