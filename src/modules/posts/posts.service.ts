@@ -446,7 +446,7 @@ export class PostsService {
 
     const post = await this.postRepository.findOne({
       where: { id: postId },
-      relations: ['comments'],
+      relations: ['comments', 'comments.user'],
     });
 
     if (!post) {

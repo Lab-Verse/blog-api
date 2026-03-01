@@ -10,6 +10,7 @@ import {
   UseGuards,
   Request,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -29,6 +30,7 @@ export class AuthController {
 
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
+  @Throttle({ short: { ttl: 60000, limit: 3 } })
   @Audit({ action: 'USER_REGISTER', resource: 'User' })
   async register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
@@ -36,6 +38,7 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ short: { ttl: 60000, limit: 5 } })
   @Audit({ action: 'USER_LOGIN', resource: 'User' })
   async login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
@@ -43,6 +46,7 @@ export class AuthController {
 
   @Post('front-login')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ short: { ttl: 60000, limit: 5 } })
   @Audit({ action: 'USER_FRONT_LOGIN', resource: 'User' })
   async frontLogin(@Body() dto: LoginDto) {
     return this.authService.frontLogin(dto);
@@ -93,6 +97,7 @@ export class AuthController {
 
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ short: { ttl: 60000, limit: 2 } })
   @Audit({ action: 'FORGOT_PASSWORD', resource: 'User' })
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.authService.forgotPassword(dto);
@@ -100,6 +105,7 @@ export class AuthController {
 
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ short: { ttl: 60000, limit: 3 } })
   @Audit({ action: 'RESET_PASSWORD', resource: 'User' })
   async resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto);

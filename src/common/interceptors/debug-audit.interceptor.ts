@@ -63,11 +63,9 @@ export class DebugAuditInterceptor implements NestInterceptor {
               ip_address: ip,
             };
 
-            console.log('Saving audit data:', auditData);
             await this.auditLogsService.create(auditData);
-            console.log('Audit log saved successfully');
-          } catch (error) {
-            console.error('Audit log failed:', error);
+          } catch {
+            // audit log failed silently
           }
         })();
       }),

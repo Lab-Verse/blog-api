@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { ServeStaticModule } from '@nestjs/serve-static';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { join } from 'path';
 import { dataSourceOptions } from './config/database.config';
 
@@ -34,12 +35,6 @@ import { RolePermissionsModule } from './modules/role-permissions/role-permissio
 import { ImportModule } from './modules/import/import.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 
-console.log('DB Configuration app:', {
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  username: process.env.DB_USERNAME,
-  database: process.env.DB_DATABASE, // This should log 'blog_db'
-});
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -50,6 +45,23 @@ console.log('DB Configuration app:', {
       serveRoot: '/uploads',
     }),
     TypeOrmModule.forRoot(dataSourceOptions),
+    ThrottlerModule.forRoot([
+      {
+        name: 'short',
+        ttl: 1000,
+        limit: 5,
+      },
+      {
+        name: 'medium',
+        ttl: 10000,
+        limit: 30,
+      },
+      {
+        name: 'long',
+        ttl: 60000,
+        limit: 100,
+      },
+    ]),
     AuthModule,
     UsersModule,
     PostsModule,

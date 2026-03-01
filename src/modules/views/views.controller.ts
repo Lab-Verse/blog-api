@@ -9,18 +9,18 @@ import {
   UseGuards,
   HttpException,
   HttpStatus,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { ViewsService } from './views.service';
 import { CreateViewDto } from './dto/create-view.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 
 @Controller('views')
-@UseGuards(JwtAuthGuard)
 export class ViewsController {
   constructor(private readonly viewsService: ViewsService) {}
 
   @Post()
+  @UseGuards(OptionalJwtAuthGuard)
   async create(@Body() createViewDto: CreateViewDto, @Request() req: any) {
     try {
       const forwardedFor = req.headers['x-forwarded-for'];
@@ -31,13 +31,10 @@ export class ViewsController {
         'unknown';
 
       const userId = req?.user?.id;
-      if (!userId) {
-        throw new UnauthorizedException('User not authenticated');
-      }
 
       const payload: CreateViewDto = {
         ...createViewDto,
-        user_id: userId,
+        user_id: userId || undefined,
         ip_address: createViewDto.ip_address || ip,
       };
 
@@ -48,6 +45,7 @@ export class ViewsController {
   }
 
   @Get('stats')
+  @UseGuards(JwtAuthGuard)
   async getStats(
     @Query('viewableType') viewableType?: string,
     @Query('viewableId') viewableId?: string,
@@ -56,6 +54,7 @@ export class ViewsController {
   }
 
   @Get('analytics')
+  @UseGuards(JwtAuthGuard)
   async getAnalytics(
     @Query('viewableType') viewableType?: string,
     @Query('viewableId') viewableId?: string,
@@ -75,11 +74,13 @@ export class ViewsController {
   }
 
   @Get('user/:userId')
+  @UseGuards(JwtAuthGuard)
   async findByUser(@Param('userId') userId: string) {
     return this.viewsService.findByUser(userId);
   }
 
   @Get('post/:postId')
+  @UseGuards(JwtAuthGuard)
   async findByPost(@Param('postId') postId: string) {
     return this.viewsService.findByPost(postId);
   }

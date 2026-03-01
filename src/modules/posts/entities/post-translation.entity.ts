@@ -44,7 +44,9 @@ export class PostTranslation {
   @UpdateDateColumn()
   updated_at: Date;
 
-  @ManyToOne(() => Post, (post) => post.translations, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Post, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'post_id' })
   post: Post;
 }

@@ -5,13 +5,6 @@ import { DataSource, DataSourceOptions } from 'typeorm/data-source/index.js';
 
 dotenv.config();
 
-console.log('DB Configuration:', {
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  username: process.env.DB_USERNAME,
-  database: process.env.DB_DATABASE,  // This should log 'blog_db'
-});
-
 export const dataSourceOptions: DataSourceOptions = {
   type: 'postgres',
   host: process.env.DB_HOST || 'localhost',

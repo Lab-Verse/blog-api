@@ -41,9 +41,13 @@ export class CommentsController {
   }
 
   @Get()
-  async findAll(@Query('postId') postId?: string) {
-    if (postId) {
-      return this.commentsService.findByPostId(postId);
+  async findAll(
+    @Query('postId') postId?: string,
+    @Query('post_id') postIdSnake?: string,
+  ) {
+    const resolvedPostId = postId || postIdSnake;
+    if (resolvedPostId) {
+      return this.commentsService.findByPostId(resolvedPostId);
     }
     return this.commentsService.findAll();
   }

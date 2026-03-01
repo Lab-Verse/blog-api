@@ -20,12 +20,12 @@ import { AuditInterceptor } from '../../common/interceptors/audit.interceptor';
 import { Audit } from '../../common/decorators/audit.decorator';
 
 @Controller('comment-replies')
-@UseGuards(JwtAuthGuard)
 @UseInterceptors(AuditInterceptor)
 export class CommentRepliesController {
   constructor(private readonly commentRepliesService: CommentRepliesService) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard)
   @Audit({ action: 'CREATE_REPLY', resource: 'CommentReply' })
   async create(
     @Body() createCommentReplyDto: CreateCommentReplyDto,
@@ -53,6 +53,7 @@ export class CommentRepliesController {
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard)
   @Audit({ action: 'UPDATE_REPLY', resource: 'CommentReply' })
   async update(
     @Param('id') id: string,
@@ -62,6 +63,7 @@ export class CommentRepliesController {
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard)
   @Audit({ action: 'DELETE_REPLY', resource: 'CommentReply' })
   async remove(@Param('id') id: string) {
     return this.commentRepliesService.remove(id);

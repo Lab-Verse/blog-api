@@ -138,7 +138,6 @@ export class PostsController {
         filename,
         'post-images',
       );
-      console.log('✅ Image uploaded to Cloudflare R2:', imageUrl);
     }
 
     return this.postsService.create(createPostDto, imageUrl);
