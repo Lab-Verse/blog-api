@@ -44,4 +44,28 @@ export class CreateUserProfileDto {
   @IsOptional()
   @IsString()
   job_title?: string;
+
+  @IsOptional()
+  @IsString()
+  twitter_url?: string;
+
+  @IsOptional()
+  @IsString()
+  facebook_url?: string;
+
+  @IsOptional()
+  @IsString()
+  instagram_url?: string;
+
+  @IsOptional()
+  @IsString()
+  linkedin_url?: string;
+
+  @IsOptional()
+  @IsString()
+  github_url?: string;
+
+  @IsOptional()
+  @IsString()
+  youtube_url?: string;
 }

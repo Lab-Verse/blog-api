@@ -7,12 +7,14 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Post, PostStatus } from './entities/post.entity';
+import { PostTranslation } from './entities/post-translation.entity';
 import { PostCategory } from '../post-categories/entities/post-category.entity';
 import { PostMedia } from '../post-media/entities/post-media.entity';
 import { Media } from '../media/entities/media.entity';
 import { User } from '../users/entities/user.entity';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
+import { CreatePostTranslationDto, UpdatePostTranslationDto } from './dto/post-translation.dto';
 import { EmailService } from '../auth/email.service';
 
 @Injectable()
@@ -20,6 +22,8 @@ export class PostsService {
   constructor(
     @InjectRepository(Post)
     private postRepository: Repository<Post>,
+    @InjectRepository(PostTranslation)
+    private postTranslationRepository: Repository<PostTranslation>,
     @InjectRepository(PostCategory)
     private postCategoryRepository: Repository<PostCategory>,
     @InjectRepository(PostMedia)
@@ -165,6 +169,24 @@ export class PostsService {
       throw error;
     }
   }
+
+  /**
+   * Overlay translated fields onto a post (or array of posts).
+   * If locale is 'en' or undefined, returns as-is (base fields = English).
+   */
+  private overlayTranslation(post: Post, locale?: string): Post {
+    if (!locale || locale === 'en') return post;
+    const t = post.translations?.find((tr) => tr.locale === locale);
+    if (t) {
+      post.title = t.title;
+      post.slug = t.slug;
+      post.content = t.content;
+      if (t.excerpt !== undefined && t.excerpt !== null) post.excerpt = t.excerpt;
+      if (t.description !== undefined && t.description !== null) post.description = t.description;
+    }
+    return post;
+  }
+
   async findAll(filters?: {
     categoryId?: string;
     userId?: string;
@@ -173,6 +195,7 @@ export class PostsService {
     sortBy?: string;
     sortOrder?: 'ASC' | 'DESC';
     search?: string;
+    locale?: string;
   }): Promise<{ data: Post[]; total: number; limit: number; page: number }> {
     const limit = filters?.limit ?? 20;
     const page = filters?.page ?? 1;
@@ -203,7 +226,8 @@ export class PostsService {
       .leftJoinAndSelect('post.postCategories', 'postCategories')
       .leftJoinAndSelect('postCategories.category', 'category')
       .leftJoinAndSelect('post.tags', 'postTags')
-      .leftJoinAndSelect('postTags.tag', 'tag');
+      .leftJoinAndSelect('postTags.tag', 'tag')
+      .leftJoinAndSelect('post.translations', 'translations');
 
     if (filters?.categoryId) {
       query.andWhere('category.id = :categoryId', {
@@ -234,27 +258,43 @@ export class PostsService {
     query.skip(offset).take(limit);
 
     const [data, total] = await query.getManyAndCount();
-    return { data, total, limit, page };
+    const locale = filters?.locale;
+    return { data: data.map((p) => this.overlayTranslation(p, locale)), total, limit, page };
   }
 
-  async findBySlug(slug: string): Promise<Post> {
+  async findBySlug(slug: string, locale?: string): Promise<Post> {
     if (!slug) {
       throw new BadRequestException('Invalid post slug');
     }
 
+    // If a non-English locale is requested, first try to find by translation slug
+    if (locale && locale !== 'en') {
+      const translation = await this.postTranslationRepository.findOne({
+        where: { slug, locale },
+        relations: ['post'],
+      });
+      if (translation) {
+        const post = await this.postRepository.findOne({
+          where: { id: translation.post_id },
+          relations: ['user', 'category', 'postCategories', 'postCategories.category', 'media', 'media.media', 'tags', 'tags.tag', 'translations'],
+        });
+        if (post) return this.overlayTranslation(post, locale);
+      }
+    }
+
     const post = await this.postRepository.findOne({
       where: { slug },
-      relations: ['user', 'category', 'postCategories', 'postCategories.category', 'media', 'media.media', 'tags', 'tags.tag'],
+      relations: ['user', 'category', 'postCategories', 'postCategories.category', 'media', 'media.media', 'tags', 'tags.tag', 'translations'],
     });
 
     if (!post) {
       throw new NotFoundException(`Post not found with slug: ${slug}`);
     }
 
-    return post;
+    return this.overlayTranslation(post, locale);
   }
 
-  async search(query: string, limit: number = 20, page: number = 1): Promise<{ data: Post[]; total: number; limit: number; page: number }> {
+  async search(query: string, limit: number = 20, page: number = 1, locale?: string): Promise<{ data: Post[]; total: number; limit: number; page: number }> {
     const offset = (page - 1) * limit;
 
     const qb = this.postRepository.createQueryBuilder('post')
@@ -279,13 +319,23 @@ export class PostsService {
       .leftJoinAndSelect('post.postCategories', 'postCategories')
       .leftJoinAndSelect('postCategories.category', 'category')
       .leftJoinAndSelect('post.tags', 'postTags')
-      .leftJoinAndSelect('postTags.tag', 'tag');
+      .leftJoinAndSelect('postTags.tag', 'tag')
+      .leftJoinAndSelect('post.translations', 'translations');
 
     if (query) {
-      qb.where(
-        '(post.title ILIKE :q OR post.excerpt ILIKE :q OR post.description ILIKE :q OR post.content ILIKE :q)',
-        { q: `%${query}%` },
-      );
+      if (locale && locale !== 'en') {
+        qb.leftJoin('post.translations', 'tr', 'tr.locale = :locale', { locale })
+          .where(
+            '(post.title ILIKE :q OR post.excerpt ILIKE :q OR post.description ILIKE :q OR post.content ILIKE :q' +
+            ' OR tr.title ILIKE :q OR tr.content ILIKE :q OR tr.excerpt ILIKE :q OR tr.description ILIKE :q)',
+            { q: `%${query}%` },
+          );
+      } else {
+        qb.where(
+          '(post.title ILIKE :q OR post.excerpt ILIKE :q OR post.description ILIKE :q OR post.content ILIKE :q)',
+          { q: `%${query}%` },
+        );
+      }
     }
 
     qb.orderBy('post.created_at', 'DESC')
@@ -293,24 +343,24 @@ export class PostsService {
       .take(limit);
 
     const [data, total] = await qb.getManyAndCount();
-    return { data, total, limit, page };
+    return { data: data.map((p) => this.overlayTranslation(p, locale)), total, limit, page };
   }
 
-  async findOne(id: string): Promise<Post> {
+  async findOne(id: string, locale?: string): Promise<Post> {
     if (!id) {
       throw new BadRequestException('Invalid post ID');
     }
 
     const post = await this.postRepository.findOne({
       where: { id },
-      relations: ['user', 'category', 'postCategories', 'postCategories.category', 'media', 'media.media'],
+      relations: ['user', 'category', 'postCategories', 'postCategories.category', 'media', 'media.media', 'translations'],
     });
 
     if (!post) {
       throw new NotFoundException(`Post not found with id: ${id}`);
     }
 
-    return post;
+    return this.overlayTranslation(post, locale);
   }
 
   async incrementViews(id: string): Promise<void> {
@@ -595,5 +645,46 @@ export class PostsService {
       avgLikesPerPost: totalPosts > 0 ? totalLikes / totalPosts : 0,
       avgCommentsPerPost: totalPosts > 0 ? totalComments / totalPosts : 0,
     };
+  }
+
+  // ── Translation CRUD ──
+
+  async getTranslations(postId: string): Promise<PostTranslation[]> {
+    return this.postTranslationRepository.find({ where: { post_id: postId } });
+  }
+
+  async upsertTranslation(
+    postId: string,
+    locale: string,
+    dto: CreatePostTranslationDto | UpdatePostTranslationDto,
+  ): Promise<PostTranslation> {
+    // Ensure post exists
+    await this.findOne(postId);
+
+    let translation = await this.postTranslationRepository.findOne({
+      where: { post_id: postId, locale },
+    });
+
+    if (translation) {
+      Object.assign(translation, dto);
+    } else {
+      translation = this.postTranslationRepository.create({
+        post_id: postId,
+        locale,
+        ...dto,
+      });
+    }
+
+    return this.postTranslationRepository.save(translation);
+  }
+
+  async deleteTranslation(postId: string, locale: string): Promise<void> {
+    const result = await this.postTranslationRepository.delete({
+      post_id: postId,
+      locale,
+    });
+    if (result.affected === 0) {
+      throw new NotFoundException(`Translation not found for locale: ${locale}`);
+    }
   }
 }

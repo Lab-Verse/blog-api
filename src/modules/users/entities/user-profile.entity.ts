@@ -44,6 +44,24 @@ export class UserProfile {
   @Column({ nullable: true })
   job_title: string;
 
+  @Column({ nullable: true })
+  twitter_url: string;
+
+  @Column({ nullable: true })
+  facebook_url: string;
+
+  @Column({ nullable: true })
+  instagram_url: string;
+
+  @Column({ nullable: true })
+  linkedin_url: string;
+
+  @Column({ nullable: true })
+  github_url: string;
+
+  @Column({ nullable: true })
+  youtube_url: string;
+
   @Column({ default: 0 })
   posts_count: number;
 

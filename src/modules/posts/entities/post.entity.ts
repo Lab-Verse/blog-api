@@ -15,6 +15,7 @@ import { PostTag } from 'src/modules/post-tags/entities/post-tag.entity';
 import { Reaction } from 'src/modules/reactions/entities/reaction.entity';
 import { Comment } from 'src/modules/comments/entities/comment.entity';
 import { PostCategory } from '../../post-categories/entities/post-category.entity';
+import { PostTranslation } from './post-translation.entity';
 
 export enum PostStatus {
   DRAFT = 'draft',
@@ -104,6 +105,9 @@ export class Post {
 
   @OneToMany(() => PostCategory, (postCategory) => postCategory.post, { cascade: true })
   postCategories: PostCategory[];
+
+  @OneToMany(() => PostTranslation, (translation) => translation.post, { cascade: true })
+  translations: PostTranslation[];
 
   @OneToMany(() => Post, (post) => post.user)
   posts: Post[];

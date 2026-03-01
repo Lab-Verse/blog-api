@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Body,
   Patch,
   Param,
@@ -14,6 +15,7 @@ import {
 import { DraftsService } from './drafts.service';
 import { CreateDraftDto } from './dto/create-draft.dto';
 import { UpdateDraftDto } from './dto/update-draft.dto';
+import { CreateDraftTranslationDto } from './dto/draft-translation.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AuditInterceptor } from '../../common/interceptors/audit.interceptor';
 import { Audit } from '../../common/decorators/audit.decorator';
@@ -62,5 +64,31 @@ export class DraftsController {
   @Get('user/:userId')
   async findByUser(@Param('userId') userId: string) {
     return this.draftsService.findByUser(userId);
+  }
+
+  // ── Translation endpoints ──
+
+  @Get(':id/translations')
+  async getTranslations(@Param('id') id: string) {
+    return this.draftsService.getTranslations(id);
+  }
+
+  @Put(':id/translations/:locale')
+  @Audit({ action: 'UPSERT_DRAFT_TRANSLATION', resource: 'DraftTranslation' })
+  async upsertTranslation(
+    @Param('id') id: string,
+    @Param('locale') locale: string,
+    @Body() dto: CreateDraftTranslationDto,
+  ) {
+    return this.draftsService.upsertTranslation(id, locale, dto);
+  }
+
+  @Delete(':id/translations/:locale')
+  @Audit({ action: 'DELETE_DRAFT_TRANSLATION', resource: 'DraftTranslation' })
+  async deleteTranslation(
+    @Param('id') id: string,
+    @Param('locale') locale: string,
+  ) {
+    return this.draftsService.deleteTranslation(id, locale);
   }
 }

@@ -4,7 +4,9 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
+  OneToMany,
 } from 'typeorm';
+import { TagTranslation } from './tag-translation.entity';
 
 @Entity('tags')
 export class Tag {
@@ -25,4 +27,7 @@ export class Tag {
 
   @UpdateDateColumn()
   updated_at: Date;
+
+  @OneToMany(() => TagTranslation, (translation) => translation.tag, { cascade: true })
+  translations: TagTranslation[];
 }

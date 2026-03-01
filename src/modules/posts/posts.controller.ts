@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Body,
   Patch,
   Param,
@@ -18,6 +19,7 @@ import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { PostsService } from './posts.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
+import { CreatePostTranslationDto, UpdatePostTranslationDto } from './dto/post-translation.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AuditInterceptor } from '../../common/interceptors/audit.interceptor';
 import { Audit } from '../../common/decorators/audit.decorator';
@@ -151,10 +153,11 @@ export class PostsController {
     @Query('sortBy') sortBy?: string,
     @Query('sortOrder') sortOrder?: 'ASC' | 'DESC',
     @Query('search') search?: string,
+    @Query('locale') locale?: string,
   ) {
     const limit = limitStr ? Math.min(Math.max(parseInt(limitStr, 10) || 20, 1), 100) : 20;
     const page = pageStr ? Math.max(parseInt(pageStr, 10) || 1, 1) : 1;
-    return this.postsService.findAll({ categoryId, userId, limit, page, sortBy, sortOrder, search });
+    return this.postsService.findAll({ categoryId, userId, limit, page, sortBy, sortOrder, search, locale });
   }
 
   @Get('stats')
@@ -168,23 +171,24 @@ export class PostsController {
     @Query('q') query?: string,
     @Query('limit') limitStr?: string,
     @Query('page') pageStr?: string,
+    @Query('locale') locale?: string,
   ) {
     const limit = limitStr ? Math.min(Math.max(parseInt(limitStr, 10) || 20, 1), 100) : 20;
     const page = pageStr ? Math.max(parseInt(pageStr, 10) || 1, 1) : 1;
-    return this.postsService.search(query || '', limit, page);
+    return this.postsService.search(query || '', limit, page, locale);
   }
 
   @Get('slug/:slug')
   @Audit({ action: 'VIEW_POST', resource: 'Post' })
-  async findBySlug(@Param('slug') slug: string) {
-    const post = await this.postsService.findBySlug(slug);
+  async findBySlug(@Param('slug') slug: string, @Query('locale') locale?: string) {
+    const post = await this.postsService.findBySlug(slug, locale);
     return post;
   }
 
   @Get(':id')
   @Audit({ action: 'VIEW_POST', resource: 'Post' })
-  async findOne(@Param('id') id: string) {
-    const post = await this.postsService.findOne(id);
+  async findOne(@Param('id') id: string, @Query('locale') locale?: string) {
+    const post = await this.postsService.findOne(id, locale);
     return post;
   }
 
@@ -314,5 +318,33 @@ export class PostsController {
   @Audit({ action: 'ADMIN_REJECT_POST', resource: 'Post' })
   async rejectPost(@Param('id') id: string, @Body('reason') reason?: string) {
     return this.postsService.rejectPost(id, reason);
+  }
+
+  // ── Translation endpoints ──
+
+  @Get(':id/translations')
+  async getTranslations(@Param('id') id: string) {
+    return this.postsService.getTranslations(id);
+  }
+
+  @Put(':id/translations/:locale')
+  @UseGuards(JwtAuthGuard)
+  @Audit({ action: 'UPSERT_POST_TRANSLATION', resource: 'PostTranslation' })
+  async upsertTranslation(
+    @Param('id') id: string,
+    @Param('locale') locale: string,
+    @Body() dto: CreatePostTranslationDto,
+  ) {
+    return this.postsService.upsertTranslation(id, locale, dto);
+  }
+
+  @Delete(':id/translations/:locale')
+  @UseGuards(JwtAuthGuard)
+  @Audit({ action: 'DELETE_POST_TRANSLATION', resource: 'PostTranslation' })
+  async deleteTranslation(
+    @Param('id') id: string,
+    @Param('locale') locale: string,
+  ) {
+    return this.postsService.deleteTranslation(id, locale);
   }
 }

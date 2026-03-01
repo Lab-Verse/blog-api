@@ -6,7 +6,9 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  OneToMany,
 } from 'typeorm';
+import { DraftTranslation } from './draft-translation.entity';
 import { User } from '../../users/entities/user.entity';
 import { Category } from '../../categories/entities/category.entity';
 
@@ -40,4 +42,7 @@ export class Draft {
   @ManyToOne(() => Category, { onDelete: 'SET NULL' })
   @JoinColumn({ name: 'category_id' })
   category: Category;
+
+  @OneToMany(() => DraftTranslation, (translation) => translation.draft, { cascade: true })
+  translations: DraftTranslation[];
 }

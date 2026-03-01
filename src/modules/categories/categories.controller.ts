@@ -2,10 +2,12 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Body,
   Patch,
   Param,
   Delete,
+  Query,
   UseGuards,
   HttpException,
   HttpStatus,
@@ -17,6 +19,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
+import { CreateCategoryTranslationDto } from './dto/category-translation.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AuditInterceptor } from '../../common/interceptors/audit.interceptor';
 import { Audit } from '../../common/decorators/audit.decorator';
@@ -62,8 +65,8 @@ export class CategoriesController {
   }
 
   @Get()
-  async findAll() {
-    const categories = await this.categoriesService.findAll();
+  async findAll(@Query('locale') locale?: string) {
+    const categories = await this.categoriesService.findAll(locale);
     return {
       items: categories,
       total: categories.length,
@@ -73,8 +76,8 @@ export class CategoriesController {
   }
 
   @Get(':id')
-  async findOne(@Param('id', new ParseUUIDPipe()) id: string) {
-    return this.categoriesService.findOne(id);
+  async findOne(@Param('id', new ParseUUIDPipe()) id: string, @Query('locale') locale?: string) {
+    return this.categoriesService.findOne(id, locale);
   }
 
   @Patch(':id')
@@ -118,5 +121,33 @@ export class CategoriesController {
   @Get(':id/followers')
   async getFollowers(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.categoriesService.getFollowers(id);
+  }
+
+  // ── Translation endpoints ──
+
+  @Get(':id/translations')
+  async getTranslations(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.categoriesService.getTranslations(id);
+  }
+
+  @Put(':id/translations/:locale')
+  @UseGuards(JwtAuthGuard)
+  @Audit({ action: 'UPSERT_CATEGORY_TRANSLATION', resource: 'CategoryTranslation' })
+  async upsertTranslation(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('locale') locale: string,
+    @Body() dto: CreateCategoryTranslationDto,
+  ) {
+    return this.categoriesService.upsertTranslation(id, locale, dto);
+  }
+
+  @Delete(':id/translations/:locale')
+  @UseGuards(JwtAuthGuard)
+  @Audit({ action: 'DELETE_CATEGORY_TRANSLATION', resource: 'CategoryTranslation' })
+  async deleteTranslation(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('locale') locale: string,
+  ) {
+    return this.categoriesService.deleteTranslation(id, locale);
   }
 }

@@ -9,6 +9,7 @@ import {
   OneToMany,
 } from 'typeorm';
 import { PostCategory } from '../../post-categories/entities/post-category.entity';
+import { CategoryTranslation } from './category-translation.entity';
 
 @Entity('categories')
 export class Category {
@@ -48,4 +49,7 @@ export class Category {
 
   @OneToMany(() => PostCategory, (postCategory) => postCategory.category)
   postCategories: PostCategory[];
+
+  @OneToMany(() => CategoryTranslation, (translation) => translation.category, { cascade: true })
+  translations: CategoryTranslation[];
 }
