@@ -189,6 +189,7 @@ export class PostsService {
 
   async findAll(filters?: {
     categoryId?: string;
+    tagId?: string;
     userId?: string;
     limit?: number;
     page?: number;
@@ -233,6 +234,10 @@ export class PostsService {
       query.andWhere('category.id = :categoryId', {
         categoryId: filters.categoryId,
       });
+    }
+
+    if (filters?.tagId) {
+      query.andWhere('tag.id = :tagId', { tagId: filters.tagId });
     }
 
     if (filters?.userId) {

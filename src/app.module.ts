@@ -34,6 +34,8 @@ import { PostTagsModule } from './modules/post-tags/post-tags.module';
 import { RolePermissionsModule } from './modules/role-permissions/role-permissions.module';
 import { ImportModule } from './modules/import/import.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { EMagazineModule } from './modules/e-magazine/e-magazine.module';
+import { LeadershipModule } from './modules/leadership/leadership.module';
 
 @Module({
   imports: [
@@ -88,6 +90,8 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     RolePermissionsModule,
     ImportModule,
     DashboardModule,
+    EMagazineModule,
+    LeadershipModule,
   ],
   controllers: [AppController],
   providers: [AppService],

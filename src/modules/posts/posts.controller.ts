@@ -146,6 +146,7 @@ export class PostsController {
   @Get()
   async findAll(
     @Query('category') categoryId?: string,
+    @Query('tag') tagId?: string,
     @Query('user') userId?: string,
     @Query('limit') limitStr?: string,
     @Query('page') pageStr?: string,
@@ -156,7 +157,7 @@ export class PostsController {
   ) {
     const limit = limitStr ? Math.min(Math.max(parseInt(limitStr, 10) || 20, 1), 100) : 20;
     const page = pageStr ? Math.max(parseInt(pageStr, 10) || 1, 1) : 1;
-    return this.postsService.findAll({ categoryId, userId, limit, page, sortBy, sortOrder, search, locale });
+    return this.postsService.findAll({ categoryId, tagId, userId, limit, page, sortBy, sortOrder, search, locale });
   }
 
   @Get('stats')

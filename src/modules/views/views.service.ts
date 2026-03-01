@@ -15,9 +15,35 @@ export class ViewsService {
   ) {}
 
   async create(createViewDto: CreateViewDto): Promise<View> {
-    if (!createViewDto.user_id) {
-      throw new BadRequestException('user_id is required to track a view');
+    // Deduplication: prevent counting the same view within 24 hours
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const existingView = await this.viewRepository.findOne({
+      where: [
+        // If user is logged in, check by user_id
+        ...(createViewDto.user_id
+          ? [{
+              user_id: createViewDto.user_id,
+              viewable_type: createViewDto.viewable_type,
+              viewable_id: createViewDto.viewable_id,
+              created_at: Between(twentyFourHoursAgo, new Date()),
+            }]
+          : []),
+        // Also check by IP for both logged-in and anonymous users
+        ...(createViewDto.ip_address
+          ? [{
+              ip_address: createViewDto.ip_address,
+              viewable_type: createViewDto.viewable_type,
+              viewable_id: createViewDto.viewable_id,
+              created_at: Between(twentyFourHoursAgo, new Date()),
+            }]
+          : []),
+      ],
+    });
+
+    if (existingView) {
+      return existingView; // Already viewed within 24h — return existing without incrementing
     }
+
     const view = this.viewRepository.create(createViewDto);
     const savedView = await this.viewRepository.save(view);
 
