@@ -10,6 +10,7 @@ import { Post, PostStatus } from './entities/post.entity';
 import { PostTranslation } from './entities/post-translation.entity';
 import { PostCategory } from '../post-categories/entities/post-category.entity';
 import { PostMedia } from '../post-media/entities/post-media.entity';
+import { PostTag } from '../post-tags/entities/post-tag.entity';
 import { Media } from '../media/entities/media.entity';
 import { User } from '../users/entities/user.entity';
 import { CreatePostDto } from './dto/create-post.dto';
@@ -28,6 +29,8 @@ export class PostsService {
     private postCategoryRepository: Repository<PostCategory>,
     @InjectRepository(PostMedia)
     private postMediaRepository: Repository<PostMedia>,
+    @InjectRepository(PostTag)
+    private postTagRepository: Repository<PostTag>,
     @InjectRepository(Media)
     private mediaRepository: Repository<Media>,
     @InjectRepository(User)
@@ -137,6 +140,17 @@ export class PostsService {
             category_id: categoryId,
           });
           await this.postCategoryRepository.save(postCategory);
+        }
+      }
+
+      // Handle tag relationships
+      if (createPostDto.tag_ids && createPostDto.tag_ids.length > 0) {
+        for (const tagId of createPostDto.tag_ids) {
+          const postTag = this.postTagRepository.create({
+            post_id: savedPost.id,
+            tag_id: tagId,
+          });
+          await this.postTagRepository.save(postTag);
         }
       }
 
@@ -286,7 +300,7 @@ export class PostsService {
       if (translation) {
         const post = await this.postRepository.findOne({
           where: { id: translation.post_id },
-          relations: ['user', 'category', 'postCategories', 'postCategories.category', 'media', 'media.media', 'tags', 'tags.tag', 'translations'],
+          relations: ['user', 'user.profile', 'category', 'postCategories', 'postCategories.category', 'media', 'media.media', 'tags', 'tags.tag', 'translations'],
         });
         if (post) return this.overlayTranslation(post, locale);
       }
@@ -294,7 +308,7 @@ export class PostsService {
 
     const post = await this.postRepository.findOne({
       where: { slug },
-      relations: ['user', 'category', 'postCategories', 'postCategories.category', 'media', 'media.media', 'tags', 'tags.tag', 'translations'],
+      relations: ['user', 'user.profile', 'category', 'postCategories', 'postCategories.category', 'media', 'media.media', 'tags', 'tags.tag', 'translations'],
     });
 
     if (!post) {
@@ -326,6 +340,7 @@ export class PostsService {
         'post.updated_at',
       ])
       .leftJoinAndSelect('post.user', 'user')
+      .leftJoinAndSelect('user.profile', 'userProfile')
       .leftJoinAndSelect('post.postCategories', 'postCategories')
       .leftJoinAndSelect('postCategories.category', 'category')
       .leftJoinAndSelect('post.tags', 'postTags')
@@ -363,7 +378,7 @@ export class PostsService {
 
     const post = await this.postRepository.findOne({
       where: { id },
-      relations: ['user', 'category', 'postCategories', 'postCategories.category', 'media', 'media.media', 'translations'],
+      relations: ['user', 'user.profile', 'category', 'postCategories', 'postCategories.category', 'tags', 'tags.tag', 'media', 'media.media', 'translations'],
     });
 
     if (!post) {
@@ -417,6 +432,16 @@ export class PostsService {
       if (resolvedMediaIds.length > 0) {
         for (const mediaId of resolvedMediaIds) {
           await this.postMediaRepository.save({ post_id: id, media_id: mediaId });
+        }
+      }
+    }
+
+    // Update tag relationships
+    if (tag_ids !== undefined) {
+      await this.postTagRepository.delete({ post_id: id });
+      if (tag_ids.length > 0) {
+        for (const tagId of tag_ids) {
+          await this.postTagRepository.save({ post_id: id, tag_id: tagId });
         }
       }
     }

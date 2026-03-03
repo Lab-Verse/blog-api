@@ -11,6 +11,7 @@ import { Transform } from 'class-transformer';
 
 export enum PostStatus {
   DRAFT = 'draft',
+  PENDING = 'pending',
   PUBLISHED = 'published',
   ARCHIVED = 'archived',
 }

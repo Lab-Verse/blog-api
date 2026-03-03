@@ -5,8 +5,10 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
+  OneToOne,
 } from 'typeorm';
 import { Report } from '../../reports/entities/report.entity';
+import { UserProfile } from './user-profile.entity';
 export enum UserStatus {
   PENDING = 'pending',
   ACTIVE = 'active',
@@ -53,4 +55,7 @@ export class User {
   updated_at: Date;
   @OneToMany(() => Report, (report) => report.user)
   reports: Report[];
+
+  @OneToOne(() => UserProfile, (profile) => profile.user, { eager: false })
+  profile: UserProfile;
 }
