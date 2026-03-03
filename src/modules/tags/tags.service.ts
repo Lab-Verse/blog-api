@@ -31,6 +31,15 @@ export class TagsService {
   }
 
   async create(createTagDto: CreateTagDto): Promise<Tag> {
+    // Check if a tag with this name or slug already exists — return it instead of erroring
+    const existing = await this.tagRepository.findOne({
+      where: [
+        { name: createTagDto.name },
+        { slug: createTagDto.slug },
+      ],
+    });
+    if (existing) return existing;
+
     const tag = this.tagRepository.create(createTagDto);
     return this.tagRepository.save(tag);
   }
