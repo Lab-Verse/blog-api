@@ -191,6 +191,7 @@ export class PostsService {
     categoryId?: string;
     tagId?: string;
     userId?: string;
+    status?: string;
     limit?: number;
     page?: number;
     sortBy?: string;
@@ -242,6 +243,10 @@ export class PostsService {
 
     if (filters?.userId) {
       query.andWhere('post.user_id = :userId', { userId: filters.userId });
+    }
+
+    if (filters?.status) {
+      query.andWhere('post.status = :status', { status: filters.status });
     }
 
     if (filters?.search) {

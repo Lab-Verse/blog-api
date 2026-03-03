@@ -147,7 +147,9 @@ export class PostsController {
   async findAll(
     @Query('category') categoryId?: string,
     @Query('tag') tagId?: string,
-    @Query('user') userId?: string,
+    @Query('user') user?: string,
+    @Query('userId') userIdAlias?: string,
+    @Query('status') status?: string,
     @Query('limit') limitStr?: string,
     @Query('page') pageStr?: string,
     @Query('sortBy') sortBy?: string,
@@ -155,9 +157,10 @@ export class PostsController {
     @Query('search') search?: string,
     @Query('locale') locale?: string,
   ) {
+    const userId = user || userIdAlias;
     const limit = limitStr ? Math.min(Math.max(parseInt(limitStr, 10) || 20, 1), 100) : 20;
     const page = pageStr ? Math.max(parseInt(pageStr, 10) || 1, 1) : 1;
-    return this.postsService.findAll({ categoryId, tagId, userId, limit, page, sortBy, sortOrder, search, locale });
+    return this.postsService.findAll({ categoryId, tagId, userId, status, limit, page, sortBy, sortOrder, search, locale });
   }
 
   @Get('stats')
