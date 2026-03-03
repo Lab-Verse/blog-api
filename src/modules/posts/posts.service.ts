@@ -239,6 +239,7 @@ export class PostsService {
         'post.guid',
       ])
       .leftJoinAndSelect('post.user', 'user')
+      .leftJoinAndSelect('user.profile', 'userProfile')
       .leftJoinAndSelect('post.postCategories', 'postCategories')
       .leftJoinAndSelect('postCategories.category', 'category')
       .leftJoinAndSelect('post.tags', 'postTags')

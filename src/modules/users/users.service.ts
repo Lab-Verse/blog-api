@@ -135,17 +135,24 @@ export class UsersService {
     }
 
     queryBuilder
+      .leftJoinAndSelect('user.profile', 'profile')
       .select([
         'user.id',
         'user.username',
         'user.display_name',
         'user.email',
+        'user.avatar',
         'user.role',
         'user.role_id',
         'user.status',
         'user.can_publish',
         'user.created_at',
         'user.updated_at',
+        'profile.id',
+        'profile.profile_picture',
+        'profile.bio',
+        'profile.first_name',
+        'profile.last_name',
       ])
       .orderBy('user.created_at', 'DESC')
       .skip((page - 1) * limit)
