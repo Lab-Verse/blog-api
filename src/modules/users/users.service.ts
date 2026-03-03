@@ -141,7 +141,6 @@ export class UsersService {
         'user.username',
         'user.display_name',
         'user.email',
-        'user.avatar',
         'user.role',
         'user.role_id',
         'user.status',
