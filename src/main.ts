@@ -18,7 +18,7 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   const frontendUrlStr = configService.get<string>('FRONTEND_URL') || '';
   const adminUrlStr = configService.get<string>('ADMIN_PANEL_URL') || '';
-  // Support comma-separated origins (e.g. "http://localhost:3001,https://watt.com.pk")
+  // Support comma-separated origins (e.g. "http://localhost:3001,https://twa.com.pk")
   const origins = [...frontendUrlStr.split(','), ...adminUrlStr.split(',')]
     .map((s) => s.trim())
     .filter(Boolean);
