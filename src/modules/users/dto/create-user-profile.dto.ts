@@ -1,4 +1,4 @@
-import { IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString, IsBoolean } from 'class-validator';
 
 export class CreateUserProfileDto {
   @IsOptional()
@@ -68,4 +68,8 @@ export class CreateUserProfileDto {
   @IsOptional()
   @IsString()
   youtube_url?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  is_columnist?: boolean;
 }

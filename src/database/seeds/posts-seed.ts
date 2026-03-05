@@ -3,8 +3,17 @@ dotenv.config();
 import { DataSource } from 'typeorm';
 import { User } from '../../modules/users/entities/user.entity';
 import { Category } from '../../modules/categories/entities/category.entity';
-import { Post, PostStatus } from '../../modules/posts/entities/post.entity';
+import { Post, PostStatus, PostType } from '../../modules/posts/entities/post.entity';
+import { PostCategory } from '../../modules/post-categories/entities/post-category.entity';
 import { dataSourceOptions } from '../../config/database.config';
+
+// ⛔ PRODUCTION SAFETY GUARD — This seed DELETES ALL POSTS before re-seeding.
+// It must NEVER be run against a production database.
+const nodeEnv = (process.env.NODE_ENV || '').toLowerCase();
+if (nodeEnv === 'production') {
+  console.error('❌ ABORT: posts-seed cannot run in production (NODE_ENV=production). It deletes all existing posts.');
+  process.exit(1);
+}
 
 const dataSource = new DataSource(dataSourceOptions);
 
@@ -709,6 +718,97 @@ const postTemplates: Record<string, { titles: string[]; keywords: string }> = {
     ],
     keywords: 'health,medical,wellness',
   },
+  // Opinion
+  opinion: {
+    titles: [
+      'The Case for Reforming International Institutions',
+      'Why Diplomacy Must Evolve in the Digital Age',
+      'A Vision for Sustainable Economic Growth',
+      'The Urgency of Climate Action: Time Is Running Out',
+      'Rethinking Education for the 21st Century',
+      'The Promise and Peril of Artificial Intelligence',
+      'Bridging the Digital Divide: A Moral Imperative',
+      'Democracy Under Pressure: What Must Change',
+      'The Future of Work in a Post-Pandemic World',
+      'Why Free Press Matters More Than Ever',
+    ],
+    keywords: 'politics,world,business',
+  },
+  editorial: {
+    titles: [
+      'Editorial: The Path Forward for Global Trade',
+      'Editorial: Investing in Our Children\'s Future',
+      'Editorial: A Call for Unity in Divided Times',
+      'Editorial: Restoring Trust in Public Institutions',
+      'Editorial: The Stakes of the Next Election',
+      'Editorial: Why Science Must Guide Policy',
+      'Editorial: Building Bridges, Not Walls',
+      'Editorial: The Responsibility of Power',
+      'Editorial: A New Era for Multilateralism',
+      'Editorial: The Cost of Inaction on Climate',
+    ],
+    keywords: 'politics,world,business',
+  },
+  column: {
+    titles: [
+      'From the Desk: Lessons in Leadership',
+      'Weekly Column: The World This Week',
+      'My Take: Why Optimism Still Matters',
+      'Reflections on a Changing Society',
+      'Column: The Art of Political Compromise',
+      'Dispatches from the Field',
+      'A Columnist\'s View: Navigating Uncertainty',
+      'On the Record: Conversations with Leaders',
+      'Column: When Facts Meet Feelings',
+      'The Long View: Trends Shaping Our Future',
+    ],
+    keywords: 'politics,world,business',
+  },
+  analysis: {
+    titles: [
+      'Analysis: What the Economic Data Really Shows',
+      'Deep Dive: The Geopolitics of Energy',
+      'Analysis: Understanding the Voter Mood',
+      'Behind the Headlines: The Real Trade Story',
+      'Analysis: Technology\'s Impact on Employment',
+      'Strategic Assessment: Regional Power Dynamics',
+      'Analysis: Health Policy Choices and Consequences',
+      'The Numbers Behind the Climate Debate',
+      'Analysis: Education Reform Progress Report',
+      'Foreign Policy Analysis: Shifting Alliances',
+    ],
+    keywords: 'politics,world,business',
+  },
+  'guest-op-ed': {
+    titles: [
+      'Guest Op-Ed: A Former Ambassador on Diplomacy Today',
+      'Guest View: Fixing the Healthcare System',
+      'Guest Op-Ed: Youth Voices Deserve a Platform',
+      'An Insider\'s Perspective on Trade Negotiations',
+      'Guest Op-Ed: The Case for Green Investment',
+      'Guest View: Why Local Journalism Matters',
+      'Guest Op-Ed: Rethinking Foreign Aid',
+      'A Teacher\'s Perspective on Education Policy',
+      'Guest Op-Ed: Building Resilient Communities',
+      'Guest View: Innovation and the Public Good',
+    ],
+    keywords: 'politics,world,business',
+  },
+  letters: {
+    titles: [
+      'Letters: Readers Respond to Climate Coverage',
+      'Letters to the Editor: On the State of Democracy',
+      'Letters: Your Views on Healthcare Reform',
+      'Letters to the Editor: Education Debate Continues',
+      'Letters: Readers on Technology and Privacy',
+      'Letters to the Editor: The Economy and Jobs',
+      'Letters: In Response to Our Editorial',
+      'Letters to the Editor: Foreign Policy Perspectives',
+      'Letters: Community Voices on Local Issues',
+      'Letters to the Editor: The Future We Want',
+    ],
+    keywords: 'politics,world,business',
+  },
 };
 
 // Default template for categories not explicitly defined
@@ -951,6 +1051,7 @@ async function seedPosts() {
     const userRepo = dataSource.getRepository(User);
     const categoryRepo = dataSource.getRepository(Category);
     const postRepo = dataSource.getRepository(Post);
+    const postCategoryRepo = dataSource.getRepository(PostCategory);
 
     // Fetch the admin user
     const adminUser = await userRepo.findOne({
@@ -977,6 +1078,23 @@ async function seedPosts() {
       );
     }
 
+    // Build a parent lookup for child categories
+    const parentLookup = new Map<string, string>();
+    for (const cat of categories) {
+      if (cat.parent_id) {
+        parentLookup.set(cat.id, cat.parent_id);
+      }
+    }
+
+    // Identify opinion category tree (parent + children) for post_type tagging
+    const opinionSlugs = new Set(['opinion', 'editorial', 'column', 'analysis', 'guest-op-ed', 'letters']);
+    const opinionCategoryIds = new Set<string>();
+    for (const cat of categories) {
+      if (opinionSlugs.has(cat.slug)) {
+        opinionCategoryIds.add(cat.id);
+      }
+    }
+
     // Delete ALL existing posts for clean seeding
     console.log('🗑️  Removing all existing posts...');
     await postRepo.createQueryBuilder().delete().from(Post).execute();
@@ -998,7 +1116,7 @@ async function seedPosts() {
         const excerpt = `Latest news and updates about ${category.name}. Read our comprehensive coverage and expert analysis.`;
         const featuredImage = getUnsplashImageUrl(keywords, i);
 
-        await postRepo.save({
+        const savedPost = await postRepo.save({
           title,
           slug,
           content,
@@ -1007,12 +1125,29 @@ async function seedPosts() {
           user_id: adminUser.id,
           category_id: category.id,
           status: PostStatus.PUBLISHED,
+          post_type: opinionCategoryIds.has(category.id) ? PostType.OPINION : PostType.STANDARD,
           featured_image: featuredImage,
           views_count: Math.floor(Math.random() * 1000),
           likes_count: Math.floor(Math.random() * 100),
           comments_count: 0,
           published_at: new Date(),
         });
+
+        // Populate the post_categories join table (used by API queries)
+        await postCategoryRepo.save({
+          post_id: savedPost.id,
+          category_id: category.id,
+        });
+
+        // For child categories, also link the post to its parent category
+        // so fetchPosts({ category: parent.id }) returns child posts too
+        const parentId = parentLookup.get(category.id);
+        if (parentId) {
+          await postCategoryRepo.save({
+            post_id: savedPost.id,
+            category_id: parentId,
+          });
+        }
 
         totalPosts++;
       }

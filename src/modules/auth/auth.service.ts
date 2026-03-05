@@ -295,7 +295,7 @@ export class AuthService {
       { expiresIn: '1h' },
     );
 
-    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/reset-password?token=${resetToken}`;
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3002'}/en/reset-password?token=${resetToken}`;
 
     try {
       await this.emailService.sendPasswordResetEmail(user.email, resetUrl);

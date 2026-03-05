@@ -24,6 +24,14 @@ export enum PostStatus {
   ARCHIVED = 'archived',
 }
 
+export enum PostType {
+  STANDARD = 'standard',
+  OPINION = 'opinion',
+  VIDEO = 'video',
+  AUDIO = 'audio',
+  GALLERY = 'gallery',
+}
+
 @Entity('posts')
 export class Post {
   @PrimaryGeneratedColumn('uuid')
@@ -55,6 +63,9 @@ export class Post {
 
   @Column({ type: 'enum', enum: PostStatus, nullable: true })
   status: PostStatus;
+
+  @Column({ type: 'enum', enum: PostType, default: PostType.STANDARD, nullable: true })
+  post_type: PostType;
 
   @Column({ nullable: true })
   featured_image?: string;

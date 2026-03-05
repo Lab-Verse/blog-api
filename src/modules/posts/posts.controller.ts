@@ -24,6 +24,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AuditInterceptor } from '../../common/interceptors/audit.interceptor';
 import { Audit } from '../../common/decorators/audit.decorator';
 import { CloudflareService } from '../../common/services/cloudflare.service';
+import { applyWatermark } from '../../common/utils/watermark';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 
@@ -132,9 +133,13 @@ export class PostsController {
     // Upload image to Cloudflare R2 if provided
     let imageUrl: string | undefined;
     if (file) {
+      const watermarkedBuffer = await applyWatermark(
+        file.buffer,
+        file.mimetype,
+      );
       const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}-${file.originalname}`;
       imageUrl = await this.cloudflareService.uploadFile(
-        file.buffer,
+        watermarkedBuffer,
         filename,
         'post-images',
       );
@@ -155,12 +160,13 @@ export class PostsController {
     @Query('sortBy') sortBy?: string,
     @Query('sortOrder') sortOrder?: 'ASC' | 'DESC',
     @Query('search') search?: string,
+    @Query('postType') postType?: string,
     @Query('locale') locale?: string,
   ) {
     const userId = user || userIdAlias;
     const limit = limitStr ? Math.min(Math.max(parseInt(limitStr, 10) || 20, 1), 100) : 20;
     const page = pageStr ? Math.max(parseInt(pageStr, 10) || 1, 1) : 1;
-    return this.postsService.findAll({ categoryId, tagId, userId, status, limit, page, sortBy, sortOrder, search, locale });
+    return this.postsService.findAll({ categoryId, tagId, userId, status, postType, limit, page, sortBy, sortOrder, search, locale });
   }
 
   @Get('stats')
@@ -225,8 +231,12 @@ export class PostsController {
     );
 
     if (file) {
+      const watermarkedBuffer = await applyWatermark(
+        file.buffer,
+        file.mimetype,
+      );
       const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}-${file.originalname}`;
-      const imageUrl = await this.cloudflareService.uploadFile(file.buffer, filename, 'post-images');
+      const imageUrl = await this.cloudflareService.uploadFile(watermarkedBuffer, filename, 'post-images');
       updatePostDto.featured_image = imageUrl;
 
       const existingMediaIds = Array.isArray(updatePostDto.media_ids)

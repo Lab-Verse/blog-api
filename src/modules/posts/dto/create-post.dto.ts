@@ -16,6 +16,14 @@ export enum PostStatus {
   ARCHIVED = 'archived',
 }
 
+export enum PostType {
+  STANDARD = 'standard',
+  OPINION = 'opinion',
+  VIDEO = 'video',
+  AUDIO = 'audio',
+  GALLERY = 'gallery',
+}
+
 export class CreatePostDto {
   @IsNotEmpty()
   @IsString()
@@ -59,6 +67,10 @@ export class CreatePostDto {
   @IsOptional()
   @IsEnum(PostStatus)
   status?: PostStatus;
+
+  @IsOptional()
+  @IsEnum(PostType)
+  post_type?: PostType;
 
   @IsOptional()
   @IsString()

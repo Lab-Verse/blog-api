@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
@@ -11,9 +12,16 @@ import { CreateEMagazineDto } from './dto/create-e-magazine.dto';
 import { UpdateEMagazineDto } from './dto/update-e-magazine.dto';
 import { Tag } from '../tags/entities/tag.entity';
 import { CloudflareService } from '../../common/services/cloudflare.service';
+import { execFile } from 'child_process';
+import { writeFile, readFile, unlink, mkdtemp } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join } from 'path';
 
 @Injectable()
 export class EMagazineService {
+  private readonly logger = new Logger(EMagazineService.name);
+  private static readonly MAX_PDF_SIZE = 25 * 1024 * 1024; // 25 MB
+
   constructor(
     @InjectRepository(EMagazine)
     private eMagazineRepository: Repository<EMagazine>,
@@ -21,6 +29,79 @@ export class EMagazineService {
     private tagRepository: Repository<Tag>,
     private cloudflareService: CloudflareService,
   ) {}
+
+  /**
+   * Compress a PDF buffer using Ghostscript.
+   * Tries /ebook quality first; if still over MAX_PDF_SIZE, falls back to /screen.
+   * Returns the (possibly compressed) buffer and its size.
+   */
+  private async compressPdf(
+    buffer: Buffer,
+    originalName: string,
+  ): Promise<{ buffer: Buffer; size: number }> {
+    if (buffer.length <= EMagazineService.MAX_PDF_SIZE) {
+      return { buffer, size: buffer.length };
+    }
+
+    const dir = await mkdtemp(join(tmpdir(), 'pdf-'));
+    const inputPath = join(dir, 'input.pdf');
+    const outputPath = join(dir, 'output.pdf');
+
+    try {
+      await writeFile(inputPath, buffer);
+
+      for (const preset of ['/ebook', '/screen'] as const) {
+        await this.runGhostscript(inputPath, outputPath, preset);
+        const compressed = await readFile(outputPath);
+
+        this.logger.log(
+          `PDF "${originalName}" compressed with ${preset}: ${(buffer.length / 1024 / 1024).toFixed(1)}MB → ${(compressed.length / 1024 / 1024).toFixed(1)}MB`,
+        );
+
+        if (compressed.length <= EMagazineService.MAX_PDF_SIZE) {
+          return { buffer: compressed, size: compressed.length };
+        }
+      }
+
+      // Even /screen didn't bring it under 25MB – return best effort
+      const finalBuffer = await readFile(outputPath);
+      return { buffer: finalBuffer, size: finalBuffer.length };
+    } finally {
+      await unlink(inputPath).catch(() => {});
+      await unlink(outputPath).catch(() => {});
+    }
+  }
+
+  private runGhostscript(
+    input: string,
+    output: string,
+    preset: string,
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      execFile(
+        'gs',
+        [
+          '-sDEVICE=pdfwrite',
+          '-dCompatibilityLevel=1.4',
+          `-dPDFSETTINGS=${preset}`,
+          '-dNOPAUSE',
+          '-dBATCH',
+          '-dQUIET',
+          `-sOutputFile=${output}`,
+          input,
+        ],
+        { timeout: 120_000 },
+        (error) => {
+          if (error) {
+            this.logger.warn(`Ghostscript (${preset}) failed: ${error.message}`);
+            reject(error);
+          } else {
+            resolve();
+          }
+        },
+      );
+    });
+  }
 
   /**
    * Generate a URL-friendly slug from a title, ensuring uniqueness.
@@ -50,10 +131,16 @@ export class EMagazineService {
       throw new BadRequestException('PDF file is required');
     }
 
+    // Compress PDF if over 25MB
+    const { buffer: pdfBuffer, size: pdfSize } = await this.compressPdf(
+      pdfFile.buffer,
+      pdfFile.originalname,
+    );
+
     // Upload PDF to R2
     const pdfFilename = `${Date.now()}-${Math.round(Math.random() * 1e9)}-${pdfFile.originalname}`;
     const pdfUrl = await this.cloudflareService.uploadFile(
-      pdfFile.buffer,
+      pdfBuffer,
       pdfFilename,
       'e-magazines',
     );
@@ -89,7 +176,7 @@ export class EMagazineService {
       published_date: dto.published_date ? new Date(dto.published_date) : undefined,
       status: dto.status || 'draft',
       page_count: dto.page_count,
-      file_size: pdfFile.size,
+      file_size: pdfSize,
       category_id: dto.category_id,
       uploaded_by: uploadedBy,
       tags,
@@ -193,17 +280,23 @@ export class EMagazineService {
 
     // Upload new PDF if provided
     if (pdfFile) {
+      // Compress PDF if over 25MB
+      const { buffer: pdfBuffer, size: pdfSize } = await this.compressPdf(
+        pdfFile.buffer,
+        pdfFile.originalname,
+      );
+
       // Delete old PDF
       if (magazine.pdf_url) {
         await this.cloudflareService.deleteFile(magazine.pdf_url).catch(() => {});
       }
       const pdfFilename = `${Date.now()}-${Math.round(Math.random() * 1e9)}-${pdfFile.originalname}`;
       magazine.pdf_url = await this.cloudflareService.uploadFile(
-        pdfFile.buffer,
+        pdfBuffer,
         pdfFilename,
         'e-magazines',
       );
-      magazine.file_size = pdfFile.size;
+      magazine.file_size = pdfSize;
     }
 
     // Upload new cover if provided

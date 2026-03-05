@@ -41,7 +41,10 @@ export class CategoriesService {
   }
 
   async findAll(locale?: string): Promise<Category[]> {
-    const categories = await this.categoryRepository.find({ relations: ['translations'] });
+    const categories = await this.categoryRepository.find({
+      relations: ['translations'],
+      order: { display_order: 'ASC', created_at: 'ASC' },
+    });
     return categories.map((c) => this.overlayTranslation(c, locale));
   }
 

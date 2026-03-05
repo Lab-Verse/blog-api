@@ -106,6 +106,7 @@ export class UsersService {
     limit: number = 10,
     search?: string,
     status?: string,
+    isColumnist?: boolean,
   ): Promise<{
     items: User[];
     total: number;
@@ -121,6 +122,7 @@ export class UsersService {
     }
 
     const queryBuilder = this.userRepository.createQueryBuilder('user');
+    queryBuilder.leftJoin('user.profile', 'profile');
     queryBuilder.where('user.role != :role', { role: 'super_admin' });
 
     if (search) {
@@ -134,8 +136,11 @@ export class UsersService {
       queryBuilder.andWhere('user.status = :status', { status });
     }
 
+    if (isColumnist !== undefined) {
+      queryBuilder.andWhere('profile.is_columnist = :isColumnist', { isColumnist });
+    }
+
     queryBuilder
-      .leftJoinAndSelect('user.profile', 'profile')
       .select([
         'user.id',
         'user.username',
@@ -152,6 +157,7 @@ export class UsersService {
         'profile.bio',
         'profile.first_name',
         'profile.last_name',
+        'profile.is_columnist',
       ])
       .orderBy('user.created_at', 'DESC')
       .skip((page - 1) * limit)

@@ -50,10 +50,11 @@ export class UsersController {
     @Query('limit') limit?: string,
     @Query('search') search?: string,
     @Query('status') status?: string,
+    @Query('is_columnist') isColumnist?: string,
   ) {
     const pageNum = page ? parseInt(page, 10) : 1;
     const limitNum = limit ? parseInt(limit, 10) : 10;
-    return this.usersService.findAll(pageNum, limitNum, search, status);
+    return this.usersService.findAll(pageNum, limitNum, search, status, isColumnist === 'true' ? true : undefined);
   }
 
   @Get('username/:username')

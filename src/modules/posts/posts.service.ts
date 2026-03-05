@@ -6,7 +6,8 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Post, PostStatus } from './entities/post.entity';
+import { Post, PostStatus, PostType } from './entities/post.entity';
+import { UserProfile } from '../users/entities/user-profile.entity';
 import { PostTranslation } from './entities/post-translation.entity';
 import { PostCategory } from '../post-categories/entities/post-category.entity';
 import { PostMedia } from '../post-media/entities/post-media.entity';
@@ -111,13 +112,27 @@ export class PostsService {
 
       // Check if the author has can_publish permission
       let postStatus = createPostDto.status || PostStatus.DRAFT;
-      if (createPostDto.user_id && postStatus === PostStatus.PUBLISHED) {
-        const author = await this.userRepository.findOne({
-          where: { id: createPostDto.user_id },
-        });
+      const author = createPostDto.user_id
+        ? await this.userRepository.findOne({ where: { id: createPostDto.user_id } })
+        : null;
+
+      if (author && postStatus === PostStatus.PUBLISHED && !author.can_publish) {
         // If author doesn't have can_publish permission, set to PENDING for admin approval
-        if (author && !author.can_publish) {
-          postStatus = PostStatus.PENDING;
+        postStatus = PostStatus.PENDING;
+      }
+
+      // Enforce Opinion permission — only columnists or admins can create opinion posts
+      if (createPostDto.post_type === PostType.OPINION && author) {
+        const isAdmin = author.role === 'admin' || author.role === 'super_admin';
+        if (!isAdmin) {
+          const profile = await this.postRepository.manager
+            .getRepository(UserProfile)
+            .findOne({ where: { user_id: author.id } });
+          if (!profile?.is_columnist) {
+            throw new BadRequestException(
+              'You do not have permission to create opinion posts. Contact an admin to enable columnist access.',
+            );
+          }
         }
       }
 
@@ -206,6 +221,7 @@ export class PostsService {
     tagId?: string;
     userId?: string;
     status?: string;
+    postType?: string;
     limit?: number;
     page?: number;
     sortBy?: string;
@@ -228,6 +244,7 @@ export class PostsService {
         'post.user_id',
         'post.category_id',
         'post.status',
+        'post.post_type',
         'post.views_count',
         'post.likes_count',
         'post.comments_count',
@@ -262,6 +279,10 @@ export class PostsService {
 
     if (filters?.status) {
       query.andWhere('post.status = :status', { status: filters.status });
+    }
+
+    if (filters?.postType) {
+      query.andWhere('post.post_type = :postType', { postType: filters.postType });
     }
 
     if (filters?.search) {
@@ -333,6 +354,7 @@ export class PostsService {
         'post.user_id',
         'post.category_id',
         'post.status',
+        'post.post_type',
         'post.views_count',
         'post.likes_count',
         'post.comments_count',

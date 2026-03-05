@@ -3,6 +3,7 @@ import {
   IsString,
   IsOptional,
   IsBoolean,
+  IsNumber,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 
@@ -34,4 +35,13 @@ export class CreateCategoryDto {
   @IsOptional()
   @IsString()
   image_url?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Transform(({ value }) => {
+    if (value === '' || value === null || value === undefined) return 0;
+    const num = Number(value);
+    return isNaN(num) ? 0 : num;
+  })
+  display_order?: number;
 }

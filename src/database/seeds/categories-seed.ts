@@ -5,6 +5,14 @@ import { User } from '../../modules/users/entities/user.entity';
 import { Category } from '../../modules/categories/entities/category.entity';
 import { dataSourceOptions } from '../../config/database.config';
 
+// ⛔ PRODUCTION SAFETY GUARD — This seed DELETES ALL CATEGORIES before re-seeding.
+// It must NEVER be run against a production database.
+const nodeEnv = (process.env.NODE_ENV || '').toLowerCase();
+if (nodeEnv === 'production') {
+  console.error('❌ ABORT: categories-seed cannot run in production (NODE_ENV=production). It deletes all existing categories.');
+  process.exit(1);
+}
+
 const dataSource = new DataSource(dataSourceOptions);
 
 interface ChildCategory {
@@ -105,6 +113,17 @@ const categoryTree: ParentCategory[] = [
     name: 'Health',
     slug: 'health',
     children: [],
+  },
+  {
+    name: 'Opinion',
+    slug: 'opinion',
+    children: [
+      { name: 'Editorial', slug: 'editorial' },
+      { name: 'Column', slug: 'column' },
+      { name: 'Analysis', slug: 'analysis' },
+      { name: 'Guest Op-Ed', slug: 'guest-op-ed' },
+      { name: 'Letters', slug: 'letters' },
+    ],
   },
 ];
 

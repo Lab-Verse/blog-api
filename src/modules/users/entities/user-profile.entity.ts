@@ -71,6 +71,9 @@ export class UserProfile {
   @Column({ default: 0 })
   following_count: number;
 
+  @Column({ default: false })
+  is_columnist: boolean;
+
   @CreateDateColumn()
   created_at: Date;
 

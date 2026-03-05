@@ -37,6 +37,9 @@ export class Category {
   @Column({ nullable: true })
   image_url?: string;
 
+  @Column({ default: 0 })
+  display_order: number;
+
   @CreateDateColumn()
   created_at: Date;
 
