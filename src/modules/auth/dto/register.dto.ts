@@ -27,8 +27,8 @@ export class RegisterDto {
 
   @IsOptional()
   @IsEnum(Role)
-  @Transform(({ value }) => value || 'user')
-  role?: string = 'user';
+  @Transform(({ value }) => value || 'author')
+  role?: string = 'author';
 
   @IsUUID()
   @IsOptional()

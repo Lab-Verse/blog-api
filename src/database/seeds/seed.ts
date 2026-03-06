@@ -57,6 +57,11 @@ async function seed() {
     if (!userRole) {
       userRole = await roleRepo.save({ name: 'User', slug: 'user' });
     }
+
+    let authorRole = await roleRepo.findOne({ where: { slug: 'author' } });
+    if (!authorRole) {
+      authorRole = await roleRepo.save({ name: 'Author', slug: 'author' });
+    }
     console.log('✓ Roles created');
 
     // Role-Permissions

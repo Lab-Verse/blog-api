@@ -75,6 +75,10 @@ export class UsersService {
 
       if (role) {
         createUserDto.role_id = role.id;
+      } else {
+        throw new ConflictException(
+          `Role '${createUserDto.role}' not found. Please ensure the role exists in the roles table.`,
+        );
       }
     }
 

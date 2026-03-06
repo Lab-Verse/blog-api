@@ -62,11 +62,12 @@ export class AuthService {
 
     // Note: usersService.create() handles password hashing
     // Set status to PENDING for all new registrations - admin must verify
+    // Always assign 'author' role for public registration — role escalation not allowed
     const userPayload: CreateUserDto = {
       username: dto.username,
       email: dto.email,
       password: dto.password, // Plain password - usersService.create() will hash it
-      role: dto.role || 'visitor',
+      role: 'author',
       status: UserStatus.PENDING,
     };
 
@@ -113,6 +114,15 @@ export class AuthService {
     if (user.role_id) {
       const role = await this.rolesService.findById(user.role_id);
       if (!role || (role.slug !== 'admin' && role.slug !== 'super_admin')) {
+        throw new UnauthorizedException('Access denied. Admin privileges required');
+      }
+    } else if (user.role === 'admin' || user.role === 'super_admin') {
+      // Fallback: role_id is missing but role string indicates admin — auto-link to roles table
+      const role = await this.rolesService.findBySlug(user.role);
+      if (role) {
+        user.role_id = role.id;
+        await this.usersService.update(user.id, { role_id: role.id } as any);
+      } else {
         throw new UnauthorizedException('Access denied. Admin privileges required');
       }
     } else {

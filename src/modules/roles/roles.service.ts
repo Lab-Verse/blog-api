@@ -98,4 +98,8 @@ export class RolesService {
   async findById(id: string): Promise<Role> {
     return this.findOne(id); // ✅ reuse logic
   }
+
+  async findBySlug(slug: string): Promise<Role | null> {
+    return this.roleRepository.findOne({ where: { slug } });
+  }
 }
