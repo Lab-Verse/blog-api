@@ -27,6 +27,7 @@ import { CloudflareService } from '../../common/services/cloudflare.service';
 import { applyWatermark } from '../../common/utils/watermark';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { RolesService } from '../roles/roles.service';
 
 @Controller('posts')
 @UseInterceptors(AuditInterceptor)
@@ -34,7 +35,26 @@ export class PostsController {
   constructor(
     private readonly postsService: PostsService,
     private readonly cloudflareService: CloudflareService,
+    private readonly rolesService: RolesService,
   ) {}
+
+  /**
+   * Resolve the user's role slug from their role_id in the JWT.
+   * Returns the slug (e.g. 'admin', 'super_admin') or null.
+   */
+  private async resolveUserRole(roleId?: string): Promise<string | null> {
+    if (!roleId) return null;
+    try {
+      const role = await this.rolesService.findById(roleId);
+      return role?.slug ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  private isAdminRole(roleSlug: string | null): boolean {
+    return roleSlug === 'admin' || roleSlug === 'super_admin';
+  }
 
   private normalizeArrayField(value: unknown): string[] | undefined {
     if (value === undefined || value === null || value === '') {
@@ -108,11 +128,24 @@ export class PostsController {
   async create(
     @Body() createPostDto: CreatePostDto,
     @UploadedFile() file: Express.Multer.File,
-    @Req() req: Request & { user?: { id: string } },
+    @Req() req: Request & { user?: { id: string; role_id?: string } },
   ) {
-    // Auto-assign user_id from JWT token
-    if (req.user?.id) {
+    const roleSlug = await this.resolveUserRole(req.user?.role_id);
+    const isAdmin = this.isAdminRole(roleSlug);
+
+    if (isAdmin && createPostDto.user_id) {
+      // Admin can assign the post to any author — keep the provided user_id
+    } else if (req.user?.id) {
+      // Non-admin: always assign from JWT token
       createPostDto.user_id = req.user.id;
+    }
+
+    // Non-admin users cannot set published_at to a past date
+    if (!isAdmin && createPostDto.published_at) {
+      const publishedDate = new Date(createPostDto.published_at);
+      if (publishedDate < new Date()) {
+        createPostDto.published_at = undefined;
+      }
     }
 
     // Normalize array fields from both transformed DTO and raw body (multipart/json)
@@ -213,8 +246,24 @@ export class PostsController {
     @Param('id') id: string,
     @Body() updatePostDto: UpdatePostDto,
     @UploadedFile() file: Express.Multer.File,
-    @Req() req: Request,
+    @Req() req: Request & { user?: { id: string; role_id?: string } },
   ) {
+    const roleSlug = await this.resolveUserRole(req.user?.role_id);
+    const isAdmin = this.isAdminRole(roleSlug);
+
+    // Non-admin users cannot reassign user_id
+    if (!isAdmin) {
+      delete updatePostDto.user_id;
+    }
+
+    // Non-admin users cannot set published_at to a past date
+    if (!isAdmin && updatePostDto.published_at) {
+      const publishedDate = new Date(updatePostDto.published_at);
+      if (publishedDate < new Date()) {
+        delete updatePostDto.published_at;
+      }
+    }
+
     // Normalize array fields from both transformed DTO and raw body (multipart/json)
     const rawBody = req.body as Record<string, unknown>;
     updatePostDto.tag_ids = this.normalizeArrayFieldFromDtoAndRaw(

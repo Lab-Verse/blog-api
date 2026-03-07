@@ -55,7 +55,7 @@ export class AuthController {
   @Get('me')
   @UseGuards(JwtAuthGuard)
   async getMe(@Request() req: any) {
-    return this.authService.getMe(req.user.sub);
+    return this.authService.getMe(req.user.id);
   }
 
   @Post('admin/verify-user/:id')
