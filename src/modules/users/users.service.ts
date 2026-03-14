@@ -5,7 +5,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Not, FindOptionsWhere, FindOptionsOrder } from 'typeorm';
+import { Repository, Not, FindOptionsWhere, FindOptionsOrder, ILike } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 import { User } from './entities/user.entity';
 import { UserProfile } from './entities/user-profile.entity';
@@ -208,8 +208,9 @@ export class UsersService {
     if (!username) {
       throw new BadRequestException('Username is required');
     }
+    const trimmed = username.trim();
     const user = await this.userRepository.findOne({
-      where: { username },
+      where: { username: ILike(trimmed) },
     });
 
     if (!user) {
