@@ -36,6 +36,7 @@ import { ImportModule } from './modules/import/import.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { EMagazineModule } from './modules/e-magazine/e-magazine.module';
 import { LeadershipModule } from './modules/leadership/leadership.module';
+import { AgentLogsModule } from './modules/agent-logs/agent-logs.module';
 
 @Module({
   imports: [
@@ -92,6 +93,7 @@ import { LeadershipModule } from './modules/leadership/leadership.module';
     DashboardModule,
     EMagazineModule,
     LeadershipModule,
+    AgentLogsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
