@@ -1,14 +1,89 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-return */
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import {
   QueryAgentRunsDto,
   QueryAgentArticlesDto,
 } from './dto/query-agent-logs.dto';
+import { UpdateAgentConfigDto } from './dto/update-agent-config.dto';
 
 @Injectable()
-export class AgentLogsService {
+export class AgentLogsService implements OnModuleInit {
   constructor(private readonly dataSource: DataSource) {}
+
+  async onModuleInit() {
+    // Create agent_config table if it doesn't exist and seed defaults
+    await this.dataSource.query(`
+      CREATE TABLE IF NOT EXISTS agent_config (
+        id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+        enabled BOOLEAN NOT NULL DEFAULT true,
+        max_posts_per_session INTEGER NOT NULL DEFAULT 25,
+        pipeline_interval_minutes INTEGER NOT NULL DEFAULT 90,
+        stagger_delay_seconds INTEGER NOT NULL DEFAULT 1800,
+        max_article_age_hours INTEGER NOT NULL DEFAULT 24,
+        max_articles_per_category INTEGER NOT NULL DEFAULT 5,
+        require_featured_image BOOLEAN NOT NULL DEFAULT true,
+        image_strategy VARCHAR(50) NOT NULL DEFAULT 'source_attribution',
+        image_ai_provider VARCHAR(50) NOT NULL DEFAULT 'pollinations',
+        auto_publish BOOLEAN NOT NULL DEFAULT true,
+        categories_enabled JSONB NOT NULL DEFAULT '[]'::jsonb,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    // Insert default row if empty
+    await this.dataSource.query(`
+      INSERT INTO agent_config (id) VALUES (1)
+      ON CONFLICT (id) DO NOTHING
+    `);
+  }
+
+  async getConfig() {
+    const rows = await this.dataSource.query(
+      'SELECT * FROM agent_config WHERE id = 1',
+    );
+    return rows[0] || null;
+  }
+
+  async updateConfig(dto: UpdateAgentConfigDto) {
+    const setClauses: string[] = [];
+    const params: any[] = [];
+    let idx = 1;
+
+    const fields: Array<[keyof UpdateAgentConfigDto, string]> = [
+      ['enabled', 'enabled'],
+      ['max_posts_per_session', 'max_posts_per_session'],
+      ['pipeline_interval_minutes', 'pipeline_interval_minutes'],
+      ['stagger_delay_seconds', 'stagger_delay_seconds'],
+      ['max_article_age_hours', 'max_article_age_hours'],
+      ['max_articles_per_category', 'max_articles_per_category'],
+      ['require_featured_image', 'require_featured_image'],
+      ['image_strategy', 'image_strategy'],
+      ['image_ai_provider', 'image_ai_provider'],
+      ['auto_publish', 'auto_publish'],
+      ['categories_enabled', 'categories_enabled'],
+    ];
+
+    for (const [dtoKey, colName] of fields) {
+      if (dto[dtoKey] !== undefined) {
+        setClauses.push(`${colName} = $${idx++}`);
+        params.push(
+          dtoKey === 'categories_enabled'
+            ? JSON.stringify(dto[dtoKey])
+            : dto[dtoKey],
+        );
+      }
+    }
+
+    if (setClauses.length === 0) {
+      return this.getConfig();
+    }
+
+    setClauses.push(`updated_at = NOW()`);
+
+    const query = `UPDATE agent_config SET ${setClauses.join(', ')} WHERE id = 1 RETURNING *`;
+    const rows = await this.dataSource.query(query, params);
+    return rows[0];
+  }
 
   async findAllRuns(queryDto?: QueryAgentRunsDto) {
     const page = queryDto?.page || 1;
