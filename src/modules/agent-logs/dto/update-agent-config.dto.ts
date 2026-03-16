@@ -61,4 +61,9 @@ export class UpdateAgentConfigDto {
   @IsArray()
   @IsString({ each: true })
   categories_enabled?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  categories_requiring_review?: string[];
 }

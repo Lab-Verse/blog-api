@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Post,
   Patch,
   Body,
   Param,
@@ -45,5 +46,56 @@ export class AgentLogsController {
   @Get('articles')
   async findAllArticles(@Query() queryDto: QueryAgentArticlesDto) {
     return this.agentLogsService.findAllArticles(queryDto);
+  }
+
+  // ── HITL Review Queue ──────────────────────────────────
+
+  @Get('review-queue')
+  async getReviewQueue(@Query() queryDto: QueryAgentArticlesDto) {
+    return this.agentLogsService.getReviewQueue(queryDto);
+  }
+
+  @Post('articles/:id/approve')
+  async approveArticle(@Param('id') id: string) {
+    return this.agentLogsService.approveArticle(id);
+  }
+
+  @Post('articles/:id/reject')
+  async rejectArticle(
+    @Param('id') id: string,
+    @Body('reason') reason?: string,
+  ) {
+    return this.agentLogsService.rejectArticle(id, reason);
+  }
+
+  // ── Cost telemetry ──────────────────────────────────────
+
+  @Get('cost-summary')
+  async getCostSummary(
+    @Query('days') days?: string,
+  ) {
+    return this.agentLogsService.getCostSummary(parseInt(days || '7', 10));
+  }
+
+  // ── Social media posts ─────────────────────────────────
+
+  @Get('social-posts')
+  async getSocialPosts(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('platform') platform?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.agentLogsService.getSocialPosts({
+      page: parseInt(page || '1', 10),
+      limit: parseInt(limit || '20', 10),
+      platform,
+      status,
+    });
+  }
+
+  @Get('social-stats')
+  async getSocialStats() {
+    return this.agentLogsService.getSocialStats();
   }
 }
