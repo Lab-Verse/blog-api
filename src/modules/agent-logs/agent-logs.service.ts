@@ -45,6 +45,15 @@ export class AgentLogsService implements OnModuleInit {
       ALTER TABLE agent_runs
         ADD COLUMN IF NOT EXISTS cost_summary JSONB
     `).catch(() => { /* column already exists */ });
+    // Publisher configuration columns
+    await this.dataSource.query(`
+      ALTER TABLE agent_config
+        ADD COLUMN IF NOT EXISTS publisher_admin_id UUID DEFAULT NULL
+    `).catch(() => { /* column already exists */ });
+    await this.dataSource.query(`
+      ALTER TABLE agent_config
+        ADD COLUMN IF NOT EXISTS allowed_categories JSONB NOT NULL DEFAULT '[]'::jsonb
+    `).catch(() => { /* column already exists */ });
   }
 
   async getConfig() {
@@ -72,16 +81,28 @@ export class AgentLogsService implements OnModuleInit {
       ['auto_publish', 'auto_publish'],
       ['categories_enabled', 'categories_enabled'],
       ['categories_requiring_review', 'categories_requiring_review'],
+      ['publisher_admin_id', 'publisher_admin_id'],
+      ['allowed_categories', 'allowed_categories'],
     ];
+
+    const jsonFields: Set<string> = new Set([
+      'categories_enabled',
+      'categories_requiring_review',
+      'allowed_categories',
+    ]);
 
     for (const [dtoKey, colName] of fields) {
       if (dto[dtoKey] !== undefined) {
         setClauses.push(`${colName} = $${idx++}`);
-        params.push(
-          dtoKey === 'categories_enabled' || dtoKey === 'categories_requiring_review'
-            ? JSON.stringify(dto[dtoKey])
-            : dto[dtoKey],
-        );
+        const value = dto[dtoKey];
+        // publisher_admin_id can be null to clear it
+        if (dtoKey === 'publisher_admin_id' && (value === null || value === '')) {
+          params.push(null);
+        } else if (jsonFields.has(dtoKey)) {
+          params.push(JSON.stringify(value));
+        } else {
+          params.push(value);
+        }
       }
     }
 
@@ -269,6 +290,44 @@ export class AgentLogsService implements OnModuleInit {
       articlesByCategory: categoryStats,
       dailyPublished,
       recentRuns,
+    };
+  }
+
+  // ── Publisher Validation ────────────────────────────────
+
+  async validatePublisher(userId: string) {
+    if (!userId) {
+      return { valid: false, error: 'No user ID provided' };
+    }
+
+    const users = await this.dataSource.query(
+      `SELECT id, username, email, display_name, role, can_publish FROM users WHERE id = $1`,
+      [userId],
+    );
+
+    if (!users.length) {
+      return { valid: false, error: 'User not found' };
+    }
+
+    const user = users[0];
+    const isAdmin = user.role === 'admin' || user.role === 'super_admin';
+    if (!isAdmin) {
+      return { valid: false, error: `User '${user.username}' does not have admin role (current: ${user.role})` };
+    }
+
+    if (!user.can_publish) {
+      return { valid: false, error: `User '${user.username}' does not have publish permission` };
+    }
+
+    return {
+      valid: true,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        display_name: user.display_name,
+        role: user.role,
+      },
     };
   }
 

@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsInt, IsBoolean, Min, Max, IsArray } from 'class-validator';
+import { IsOptional, IsString, IsInt, IsBoolean, IsUUID, Min, Max, IsArray } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class UpdateAgentConfigDto {
@@ -66,4 +66,13 @@ export class UpdateAgentConfigDto {
   @IsArray()
   @IsString({ each: true })
   categories_requiring_review?: string[];
+
+  @IsOptional()
+  @IsUUID('4')
+  publisher_admin_id?: string | null;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  allowed_categories?: string[];
 }

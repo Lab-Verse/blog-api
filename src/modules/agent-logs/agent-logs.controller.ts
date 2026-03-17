@@ -98,4 +98,11 @@ export class AgentLogsController {
   async getSocialStats() {
     return this.agentLogsService.getSocialStats();
   }
+
+  // ── Publisher validation ────────────────────────────────
+
+  @Get('validate-publisher/:userId')
+  async validatePublisher(@Param('userId') userId: string) {
+    return this.agentLogsService.validatePublisher(userId);
+  }
 }
