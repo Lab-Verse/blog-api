@@ -54,6 +54,11 @@ export class AgentLogsService implements OnModuleInit {
       ALTER TABLE agent_config
         ADD COLUMN IF NOT EXISTS allowed_categories JSONB NOT NULL DEFAULT '[]'::jsonb
     `).catch(() => { /* column already exists */ });
+    // Feed sources configuration — admin-managed RSS/NewsAPI sources per category
+    await this.dataSource.query(`
+      ALTER TABLE agent_config
+        ADD COLUMN IF NOT EXISTS feed_sources JSONB NOT NULL DEFAULT '[]'::jsonb
+    `).catch(() => { /* column already exists */ });
   }
 
   async getConfig() {
@@ -83,12 +88,14 @@ export class AgentLogsService implements OnModuleInit {
       ['categories_requiring_review', 'categories_requiring_review'],
       ['publisher_admin_id', 'publisher_admin_id'],
       ['allowed_categories', 'allowed_categories'],
+      ['feed_sources', 'feed_sources'],
     ];
 
     const jsonFields: Set<string> = new Set([
       'categories_enabled',
       'categories_requiring_review',
       'allowed_categories',
+      'feed_sources',
     ]);
 
     for (const [dtoKey, colName] of fields) {

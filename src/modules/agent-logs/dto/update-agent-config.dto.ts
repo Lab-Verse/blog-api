@@ -75,4 +75,14 @@ export class UpdateAgentConfigDto {
   @IsArray()
   @IsString({ each: true })
   allowed_categories?: string[];
+
+  @IsOptional()
+  @IsArray()
+  feed_sources?: Array<{
+    category_key: string;
+    feed_url: string;
+    feed_type: 'rss' | 'newsapi_keywords';
+    label?: string;
+    is_active?: boolean;
+  }>;
 }

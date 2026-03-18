@@ -208,7 +208,7 @@ export class PostsService {
     const t = post.translations?.find((tr) => tr.locale === locale);
     if (t) {
       post.title = t.title;
-      post.slug = t.slug;
+      // Keep original English slug for consistent URL routing across locales
       post.content = t.content;
       if (t.excerpt !== undefined && t.excerpt !== null) post.excerpt = t.excerpt;
       if (t.description !== undefined && t.description !== null) post.description = t.description;
@@ -328,16 +328,30 @@ export class PostsService {
       }
     }
 
+    // Try the base English slug
     const post = await this.postRepository.findOne({
       where: { slug },
       relations: ['user', 'user.profile', 'category', 'postCategories', 'postCategories.category', 'media', 'media.media', 'tags', 'tags.tag', 'translations'],
     });
 
-    if (!post) {
-      throw new NotFoundException(`Post not found with slug: ${slug}`);
+    if (post) {
+      return this.overlayTranslation(post, locale);
     }
 
-    return this.overlayTranslation(post, locale);
+    // Final fallback: check if slug matches any translation (handles bookmarked translated URLs)
+    const anyTranslation = await this.postTranslationRepository.findOne({
+      where: { slug },
+      relations: ['post'],
+    });
+    if (anyTranslation) {
+      const fallbackPost = await this.postRepository.findOne({
+        where: { id: anyTranslation.post_id },
+        relations: ['user', 'user.profile', 'category', 'postCategories', 'postCategories.category', 'media', 'media.media', 'tags', 'tags.tag', 'translations'],
+      });
+      if (fallbackPost) return this.overlayTranslation(fallbackPost, locale);
+    }
+
+    throw new NotFoundException(`Post not found with slug: ${slug}`);
   }
 
   async search(query: string, limit: number = 20, page: number = 1, locale?: string): Promise<{ data: Post[]; total: number; limit: number; page: number }> {

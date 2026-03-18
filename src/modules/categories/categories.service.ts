@@ -30,7 +30,7 @@ export class CategoriesService {
     const t = category.translations?.find((tr) => tr.locale === locale);
     if (t) {
       category.name = t.name;
-      category.slug = t.slug;
+      // Keep original English slug for consistent URL routing across locales
     }
     return category;
   }

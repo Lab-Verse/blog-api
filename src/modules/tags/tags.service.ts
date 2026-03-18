@@ -25,7 +25,7 @@ export class TagsService {
     const t = tag.translations?.find((tr) => tr.locale === locale);
     if (t) {
       tag.name = t.name;
-      tag.slug = t.slug;
+      // Keep original English slug for consistent URL routing across locales
     }
     return tag;
   }
