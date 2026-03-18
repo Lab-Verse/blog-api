@@ -1,5 +1,24 @@
-import { IsOptional, IsString, IsInt, IsBoolean, IsUUID, Min, Max, IsArray } from 'class-validator';
+import { IsOptional, IsString, IsInt, IsBoolean, IsUUID, Min, Max, IsArray, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
+
+class FeedSourceDto {
+  @IsString()
+  category_key: string;
+
+  @IsString()
+  feed_url: string;
+
+  @IsString()
+  feed_type: 'rss' | 'newsapi_keywords';
+
+  @IsOptional()
+  @IsString()
+  label?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  is_active?: boolean;
+}
 
 export class UpdateAgentConfigDto {
   @IsOptional()
@@ -78,11 +97,7 @@ export class UpdateAgentConfigDto {
 
   @IsOptional()
   @IsArray()
-  feed_sources?: Array<{
-    category_key: string;
-    feed_url: string;
-    feed_type: 'rss' | 'newsapi_keywords';
-    label?: string;
-    is_active?: boolean;
-  }>;
+  @ValidateNested({ each: true })
+  @Type(() => FeedSourceDto)
+  feed_sources?: FeedSourceDto[];
 }
