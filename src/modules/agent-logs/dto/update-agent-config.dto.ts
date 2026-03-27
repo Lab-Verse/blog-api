@@ -100,4 +100,7 @@ export class UpdateAgentConfigDto {
   @ValidateNested({ each: true })
   @Type(() => FeedSourceDto)
   feed_sources?: FeedSourceDto[];
+
+  @IsOptional()
+  category_tiers?: Record<string, any>;
 }

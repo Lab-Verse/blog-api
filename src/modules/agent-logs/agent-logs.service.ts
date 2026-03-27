@@ -60,6 +60,11 @@ export class AgentLogsService implements OnModuleInit {
       ALTER TABLE agent_config
         ADD COLUMN IF NOT EXISTS feed_sources JSONB NOT NULL DEFAULT '[]'::jsonb
     `).catch(() => { /* column already exists */ });
+    // Category tiers — tiered scheduling rules per category group
+    await this.dataSource.query(`
+      ALTER TABLE agent_config
+        ADD COLUMN IF NOT EXISTS category_tiers JSONB DEFAULT NULL
+    `).catch(() => { /* column already exists */ });
   }
 
   async getConfig() {
@@ -90,6 +95,7 @@ export class AgentLogsService implements OnModuleInit {
       ['publisher_admin_id', 'publisher_admin_id'],
       ['allowed_categories', 'allowed_categories'],
       ['feed_sources', 'feed_sources'],
+      ['category_tiers', 'category_tiers'],
     ];
 
     const jsonFields: Set<string> = new Set([
@@ -97,6 +103,7 @@ export class AgentLogsService implements OnModuleInit {
       'categories_requiring_review',
       'allowed_categories',
       'feed_sources',
+      'category_tiers',
     ]);
 
     for (const [dtoKey, colName] of fields) {
@@ -105,6 +112,8 @@ export class AgentLogsService implements OnModuleInit {
         const value = dto[dtoKey];
         // publisher_admin_id can be null to clear it
         if (dtoKey === 'publisher_admin_id' && (value === null || value === '')) {
+          params.push(null);
+        } else if (dtoKey === 'category_tiers' && value === null) {
           params.push(null);
         } else if (jsonFields.has(dtoKey)) {
           params.push(JSON.stringify(value));
