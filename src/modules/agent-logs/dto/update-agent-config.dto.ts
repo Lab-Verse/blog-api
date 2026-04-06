@@ -103,4 +103,21 @@ export class UpdateAgentConfigDto {
 
   @IsOptional()
   category_tiers?: Record<string, any>;
+
+  @IsOptional()
+  @IsArray()
+  social_links?: Array<{
+    platform: string;
+    label: string;
+    url: string;
+    enabled: boolean;
+  }>;
+
+  @IsOptional()
+  platform_config?: Array<{
+    platform: string;
+    label: string;
+    enabled: boolean;
+    auto_post: boolean;
+  }>;
 }

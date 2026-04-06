@@ -228,6 +228,9 @@ export class PostsService {
     sortOrder?: 'ASC' | 'DESC';
     search?: string;
     locale?: string;
+    author?: string;
+    dateFrom?: string;
+    dateTo?: string;
   }): Promise<{ data: Post[]; total: number; limit: number; page: number }> {
     const limit = filters?.limit ?? 20;
     const page = filters?.page ?? 1;
@@ -287,9 +290,26 @@ export class PostsService {
 
     if (filters?.search) {
       query.andWhere(
-        '(post.title ILIKE :search OR post.excerpt ILIKE :search OR post.description ILIKE :search)',
+        '(post.title ILIKE :search OR post.excerpt ILIKE :search OR post.description ILIKE :search' +
+        ' OR user.display_name ILIKE :search OR user.username ILIKE :search' +
+        ' OR category.name ILIKE :search OR tag.name ILIKE :search)',
         { search: `%${filters.search}%` },
       );
+    }
+
+    if (filters?.author) {
+      query.andWhere(
+        '(user.display_name ILIKE :authorSearch OR user.username ILIKE :authorSearch)',
+        { authorSearch: `%${filters.author}%` },
+      );
+    }
+
+    if (filters?.dateFrom) {
+      query.andWhere('post.created_at >= :dateFrom', { dateFrom: filters.dateFrom });
+    }
+
+    if (filters?.dateTo) {
+      query.andWhere('post.created_at <= :dateTo', { dateTo: filters.dateTo });
     }
 
     // Sorting
@@ -389,12 +409,16 @@ export class PostsService {
         qb.leftJoin('post.translations', 'tr', 'tr.locale = :locale', { locale })
           .where(
             '(post.title ILIKE :q OR post.excerpt ILIKE :q OR post.description ILIKE :q OR post.content ILIKE :q' +
-            ' OR tr.title ILIKE :q OR tr.content ILIKE :q OR tr.excerpt ILIKE :q OR tr.description ILIKE :q)',
+            ' OR tr.title ILIKE :q OR tr.content ILIKE :q OR tr.excerpt ILIKE :q OR tr.description ILIKE :q' +
+            ' OR user.display_name ILIKE :q OR user.username ILIKE :q' +
+            ' OR category.name ILIKE :q OR tag.name ILIKE :q)',
             { q: `%${query}%` },
           );
       } else {
         qb.where(
-          '(post.title ILIKE :q OR post.excerpt ILIKE :q OR post.description ILIKE :q OR post.content ILIKE :q)',
+          '(post.title ILIKE :q OR post.excerpt ILIKE :q OR post.description ILIKE :q OR post.content ILIKE :q' +
+          ' OR user.display_name ILIKE :q OR user.username ILIKE :q' +
+          ' OR category.name ILIKE :q OR tag.name ILIKE :q)',
           { q: `%${query}%` },
         );
       }

@@ -65,6 +65,16 @@ export class AgentLogsService implements OnModuleInit {
       ALTER TABLE agent_config
         ADD COLUMN IF NOT EXISTS category_tiers JSONB DEFAULT NULL
     `).catch(() => { /* column already exists */ });
+    // Social links — admin-managed social media profile URLs
+    await this.dataSource.query(`
+      ALTER TABLE agent_config
+        ADD COLUMN IF NOT EXISTS social_links JSONB NOT NULL DEFAULT '[]'::jsonb
+    `).catch(() => { /* column already exists */ });
+    // Platform config — per-platform posting settings managed from dashboard
+    await this.dataSource.query(`
+      ALTER TABLE agent_config
+        ADD COLUMN IF NOT EXISTS platform_config JSONB NOT NULL DEFAULT '[]'::jsonb
+    `).catch(() => { /* column already exists */ });
   }
 
   async getConfig() {
@@ -96,6 +106,8 @@ export class AgentLogsService implements OnModuleInit {
       ['allowed_categories', 'allowed_categories'],
       ['feed_sources', 'feed_sources'],
       ['category_tiers', 'category_tiers'],
+      ['social_links', 'social_links'],
+      ['platform_config', 'platform_config'],
     ];
 
     const jsonFields: Set<string> = new Set([
@@ -104,6 +116,8 @@ export class AgentLogsService implements OnModuleInit {
       'allowed_categories',
       'feed_sources',
       'category_tiers',
+      'social_links',
+      'platform_config',
     ]);
 
     for (const [dtoKey, colName] of fields) {

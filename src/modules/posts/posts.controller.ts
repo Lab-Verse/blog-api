@@ -195,11 +195,14 @@ export class PostsController {
     @Query('search') search?: string,
     @Query('postType') postType?: string,
     @Query('locale') locale?: string,
+    @Query('author') author?: string,
+    @Query('dateFrom') dateFrom?: string,
+    @Query('dateTo') dateTo?: string,
   ) {
     const userId = user || userIdAlias;
     const limit = limitStr ? Math.min(Math.max(parseInt(limitStr, 10) || 20, 1), 100) : 20;
     const page = pageStr ? Math.max(parseInt(pageStr, 10) || 1, 1) : 1;
-    return this.postsService.findAll({ categoryId, tagId, userId, status, postType, limit, page, sortBy, sortOrder, search, locale });
+    return this.postsService.findAll({ categoryId, tagId, userId, status, postType, limit, page, sortBy, sortOrder, search, locale, author, dateFrom, dateTo });
   }
 
   @Get('stats')
