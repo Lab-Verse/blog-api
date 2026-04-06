@@ -267,13 +267,23 @@ export class PostsService {
       .leftJoinAndSelect('post.translations', 'translations');
 
     if (filters?.categoryId) {
-      query.andWhere('category.id = :categoryId', {
-        categoryId: filters.categoryId,
-      });
+      // Support both UUID and slug-based lookups
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(filters.categoryId);
+      if (isUuid) {
+        query.andWhere('category.id = :categoryId', { categoryId: filters.categoryId });
+      } else {
+        query.andWhere('category.slug = :categorySlug', { categorySlug: filters.categoryId });
+      }
     }
 
     if (filters?.tagId) {
-      query.andWhere('tag.id = :tagId', { tagId: filters.tagId });
+      // Support both UUID and slug-based lookups
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(filters.tagId);
+      if (isUuid) {
+        query.andWhere('tag.id = :tagId', { tagId: filters.tagId });
+      } else {
+        query.andWhere('tag.slug = :tagSlug', { tagSlug: filters.tagId });
+      }
     }
 
     if (filters?.userId) {
