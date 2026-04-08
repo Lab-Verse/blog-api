@@ -9,7 +9,10 @@ import {
   Param,
   UseGuards,
   Request,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -31,9 +34,28 @@ export class AuthController {
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   @Throttle({ short: { ttl: 60000, limit: 3 } })
+  @UseInterceptors(
+    FileInterceptor('cv', {
+      fileFilter: (_req, file, cb) => {
+        if (!file.originalname.match(/\.(pdf|doc|docx)$/i)) {
+          return cb(
+            new BadRequestException(
+              'Only PDF, DOC, and DOCX files are allowed for CV',
+            ),
+            false,
+          );
+        }
+        cb(null, true);
+      },
+      limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+    }),
+  )
   @Audit({ action: 'USER_REGISTER', resource: 'User' })
-  async register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
+  async register(
+    @Body() dto: RegisterDto,
+    @UploadedFile() cvFile?: Express.Multer.File,
+  ) {
+    return this.authService.register(dto, cvFile);
   }
 
   @Post('login')

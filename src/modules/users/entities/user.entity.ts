@@ -48,6 +48,12 @@ export class User {
   @Column({ default: false })
   can_publish: boolean;
 
+  @Column({ nullable: true })
+  phone?: string;
+
+  @Column({ nullable: true })
+  cv_url?: string;
+
   @CreateDateColumn()
   created_at: Date;
 

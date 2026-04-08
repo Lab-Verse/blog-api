@@ -6,6 +6,7 @@ import {
   IsUUID,
   IsOptional,
   IsEnum,
+  Matches,
 } from 'class-validator';
 import { Role } from '../../../common/enums/role.enum';
 import { UserStatus } from 'src/modules/users/entities/user.entity';
@@ -24,6 +25,13 @@ export class RegisterDto {
   @IsString()
   @MinLength(8)
   password: string;
+
+  @IsNotEmpty()
+  @IsString()
+  @Matches(/^\+?[0-9\s\-()]{7,20}$/, {
+    message: 'Please provide a valid phone number',
+  })
+  phone: string;
 
   @IsOptional()
   @IsEnum(Role)

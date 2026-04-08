@@ -51,4 +51,12 @@ export class CreateUserDto {
   @IsOptional()
   @IsBoolean()
   can_publish?: boolean = false;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @IsOptional()
+  @IsString()
+  cv_url?: string;
 }

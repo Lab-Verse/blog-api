@@ -22,6 +22,7 @@ import { UserStatus } from '../users/entities/user.entity';
 
 import { RolesService } from '../roles/roles.service';
 import { EmailService } from './email.service';
+import { CloudflareService } from '../../common/services/cloudflare.service';
 
 interface ResetPasswordPayload {
   sub: string;
@@ -35,11 +36,12 @@ export class AuthService {
     private jwtService: JwtService,
     private rolesService: RolesService,
     private emailService: EmailService,
+    private cloudflareService: CloudflareService,
     @InjectRepository(RefreshToken)
     private refreshTokenRepository: Repository<RefreshToken>,
   ) {}
 
-  async register(dto: RegisterDto) {
+  async register(dto: RegisterDto, cvFile?: Express.Multer.File) {
     const existingUser = await this.usersService.findByEmail(dto.email);
     if (existingUser) {
       throw new ConflictException('Email already exists');
@@ -60,6 +62,18 @@ export class AuthService {
       }
     }
 
+    // Upload CV to Cloudflare R2 if provided
+    let cvUrl: string | undefined;
+    if (cvFile) {
+      const timestamp = Date.now();
+      const safeFilename = `${dto.username}-${timestamp}-${cvFile.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+      cvUrl = await this.cloudflareService.uploadFile(
+        cvFile.buffer,
+        safeFilename,
+        'author-cvs',
+      );
+    }
+
     // Note: usersService.create() handles password hashing
     // Set status to PENDING for all new registrations - admin must verify
     // Always assign 'author' role for public registration — role escalation not allowed
@@ -69,6 +83,8 @@ export class AuthService {
       password: dto.password, // Plain password - usersService.create() will hash it
       role: 'author',
       status: UserStatus.PENDING,
+      phone: dto.phone,
+      cv_url: cvUrl,
     };
 
     const user = await this.usersService.create(userPayload);
@@ -79,10 +95,22 @@ export class AuthService {
         id: user.id,
         username: user.username,
         email: user.email,
+        phone: user.phone,
+        cvUrl: user.cv_url,
       });
     } catch (emailError) {
       console.error('Failed to send admin notification email:', emailError);
       // Don't fail registration if email fails
+    }
+
+    // Send registration confirmation email to the author
+    try {
+      await this.emailService.sendRegistrationConfirmationToAuthor({
+        email: user.email,
+        username: user.username,
+      });
+    } catch (emailError) {
+      console.error('Failed to send registration confirmation email:', emailError);
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

@@ -13,6 +13,7 @@ import { RolesModule } from '../roles/roles.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { EmailService } from './email.service';
 import { RolesGuard } from '../../common/guards/roles.guard';
+import { CloudflareService } from '../../common/services/cloudflare.service';
 
 @Module({
   imports: [
@@ -32,7 +33,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
     ConfigModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, JwtAuthGuard, EmailService, RolesGuard],
+  providers: [AuthService, JwtStrategy, JwtAuthGuard, EmailService, RolesGuard, CloudflareService],
   exports: [AuthService, JwtAuthGuard, EmailService, RolesGuard],
 })
 export class AuthModule {}
