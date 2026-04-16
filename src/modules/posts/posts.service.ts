@@ -329,7 +329,8 @@ export class PostsService {
     if (filters?.sortBy && allowedSortFields.includes(filters.sortBy)) {
       query.orderBy(`post.${filters.sortBy}`, sortOrder);
     } else {
-      query.orderBy('COALESCE(post.published_at, post.created_at)', sortOrder);
+      query.orderBy('post.published_at', sortOrder, 'NULLS LAST');
+      query.addOrderBy('post.created_at', sortOrder);
     }
 
     // Pagination
@@ -437,7 +438,8 @@ export class PostsService {
       }
     }
 
-    qb.orderBy('COALESCE(post.published_at, post.created_at)', 'DESC')
+    qb.orderBy('post.published_at', 'DESC', 'NULLS LAST')
+      .addOrderBy('post.created_at', 'DESC')
       .skip(offset)
       .take(limit);
 
