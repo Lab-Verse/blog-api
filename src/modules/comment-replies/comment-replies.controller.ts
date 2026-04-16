@@ -11,6 +11,7 @@ import {
   HttpStatus,
   UseInterceptors,
   Request,
+  ForbiddenException,
 } from '@nestjs/common';
 import { CommentRepliesService } from './comment-replies.service';
 import { CreateCommentReplyDto } from './dto/create-comment-reply.dto';
@@ -58,14 +59,25 @@ export class CommentRepliesController {
   async update(
     @Param('id') id: string,
     @Body() updateCommentReplyDto: UpdateCommentReplyDto,
+    @Request() req: any,
   ) {
+    const reply = await this.commentRepliesService.findOne(id);
+    const isAdmin = ['super_admin', 'admin'].includes(req.user?.role?.slug || req.user?.role);
+    if (reply.user_id !== req.user.id && !isAdmin) {
+      throw new ForbiddenException('You can only edit your own replies');
+    }
     return this.commentRepliesService.update(id, updateCommentReplyDto);
   }
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
   @Audit({ action: 'DELETE_REPLY', resource: 'CommentReply' })
-  async remove(@Param('id') id: string) {
+  async remove(@Param('id') id: string, @Request() req: any) {
+    const reply = await this.commentRepliesService.findOne(id);
+    const isAdmin = ['super_admin', 'admin'].includes(req.user?.role?.slug || req.user?.role);
+    if (reply.user_id !== req.user.id && !isAdmin) {
+      throw new ForbiddenException('You can only delete your own replies');
+    }
     return this.commentRepliesService.remove(id);
   }
 }

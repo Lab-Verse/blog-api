@@ -38,6 +38,11 @@ export class ReactionsController {
     return this.reactionsService.findByPost(postId);
   }
 
+  @Get('comment/:commentId')
+  async findByComment(@Param('commentId') commentId: string) {
+    return this.reactionsService.findByComment(commentId);
+  }
+
   @Delete(':id')
   @Audit({ action: 'DELETE_REACTION', resource: 'Reaction' })
   async remove(@Param('id') id: string) {

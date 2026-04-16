@@ -70,6 +70,9 @@ export class Post {
   @Column({ nullable: true })
   featured_image?: string;
 
+  @Column({ nullable: true })
+  video_url?: string;
+
   @Column({ default: 0 })
   views_count: number;
 

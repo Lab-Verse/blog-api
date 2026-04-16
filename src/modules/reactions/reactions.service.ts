@@ -8,6 +8,7 @@ import { Repository } from 'typeorm';
 import { Reaction } from './entities/reaction.entity';
 import { CreateReactionDto } from './dto/create-reaction.dto';
 import { Post } from '../posts/entities/post.entity';
+import { Comment } from '../comments/entities/comment.entity';
 
 @Injectable()
 export class ReactionsService {
@@ -16,6 +17,8 @@ export class ReactionsService {
     private reactionRepository: Repository<Reaction>,
     @InjectRepository(Post)
     private postRepository: Repository<Post>,
+    @InjectRepository(Comment)
+    private commentRepository: Repository<Comment>,
   ) {}
 
   async create(createReactionDto: CreateReactionDto): Promise<Reaction> {
@@ -24,6 +27,12 @@ export class ReactionsService {
 
     if (createReactionDto.reactable_type === 'post') {
       await this.postRepository.increment(
+        { id: createReactionDto.reactable_id },
+        'likes_count',
+        1,
+      );
+    } else if (createReactionDto.reactable_type === 'comment') {
+      await this.commentRepository.increment(
         { id: createReactionDto.reactable_id },
         'likes_count',
         1,
@@ -39,6 +48,16 @@ export class ReactionsService {
     }
     return this.reactionRepository.find({
       where: { reactable_id: postId, reactable_type: 'post' },
+      relations: ['user'],
+    });
+  }
+
+  async findByComment(commentId: string): Promise<Reaction[]> {
+    if (!commentId) {
+      throw new BadRequestException('Invalid comment ID');
+    }
+    return this.reactionRepository.find({
+      where: { reactable_id: commentId, reactable_type: 'comment' },
       relations: ['user'],
     });
   }
@@ -60,6 +79,12 @@ export class ReactionsService {
 
     if (reaction.reactable_type === 'post') {
       await this.postRepository.decrement(
+        { id: reaction.reactable_id },
+        'likes_count',
+        1,
+      );
+    } else if (reaction.reactable_type === 'comment') {
+      await this.commentRepository.decrement(
         { id: reaction.reactable_id },
         'likes_count',
         1,

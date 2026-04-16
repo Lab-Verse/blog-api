@@ -248,6 +248,7 @@ export class PostsService {
         'post.category_id',
         'post.status',
         'post.post_type',
+        'post.video_url',
         'post.views_count',
         'post.likes_count',
         'post.comments_count',
@@ -315,20 +316,21 @@ export class PostsService {
     }
 
     if (filters?.dateFrom) {
-      query.andWhere('post.created_at >= :dateFrom', { dateFrom: filters.dateFrom });
+      query.andWhere('COALESCE(post.published_at, post.created_at) >= :dateFrom', { dateFrom: filters.dateFrom });
     }
 
     if (filters?.dateTo) {
-      query.andWhere('post.created_at <= :dateTo', { dateTo: filters.dateTo });
+      query.andWhere('COALESCE(post.published_at, post.created_at) <= :dateTo', { dateTo: filters.dateTo });
     }
 
-    // Sorting
+    // Sorting — default to published_at (with created_at fallback) so admin-backdated posts sort correctly
     const allowedSortFields = ['created_at', 'updated_at', 'published_at', 'views_count', 'likes_count', 'comments_count', 'title'];
-    const sortField = filters?.sortBy && allowedSortFields.includes(filters.sortBy)
-      ? `post.${filters.sortBy}`
-      : 'post.created_at';
     const sortOrder = filters?.sortOrder === 'ASC' ? 'ASC' : 'DESC';
-    query.orderBy(sortField, sortOrder);
+    if (filters?.sortBy && allowedSortFields.includes(filters.sortBy)) {
+      query.orderBy(`post.${filters.sortBy}`, sortOrder);
+    } else {
+      query.orderBy('COALESCE(post.published_at, post.created_at)', sortOrder);
+    }
 
     // Pagination
     query.skip(offset).take(limit);
@@ -399,6 +401,7 @@ export class PostsService {
         'post.category_id',
         'post.status',
         'post.post_type',
+        'post.video_url',
         'post.views_count',
         'post.likes_count',
         'post.comments_count',
@@ -434,7 +437,7 @@ export class PostsService {
       }
     }
 
-    qb.orderBy('post.created_at', 'DESC')
+    qb.orderBy('COALESCE(post.published_at, post.created_at)', 'DESC')
       .skip(offset)
       .take(limit);
 
@@ -656,7 +659,12 @@ export class PostsService {
       throw new BadRequestException('Post is not in pending status');
     }
 
-    await this.postRepository.update(postId, { status: PostStatus.PUBLISHED });
+    // Auto-populate published_at if not already set
+    const updatePayload: Partial<Post> = { status: PostStatus.PUBLISHED };
+    if (!post.published_at) {
+      updatePayload.published_at = new Date();
+    }
+    await this.postRepository.update(postId, updatePayload);
 
     // Notify author about post approval
     if (post.user?.email) {

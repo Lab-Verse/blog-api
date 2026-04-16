@@ -12,6 +12,7 @@ import {
   HttpStatus,
   UseInterceptors,
   Request,
+  ForbiddenException,
 } from '@nestjs/common';
 import { CommentsService } from './comments.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
@@ -63,14 +64,25 @@ export class CommentsController {
   async update(
     @Param('id') id: string,
     @Body() updateCommentDto: UpdateCommentDto,
+    @Request() req: any,
   ) {
+    const comment = await this.commentsService.findOne(id);
+    const isAdmin = ['super_admin', 'admin'].includes(req.user?.role?.slug || req.user?.role);
+    if (comment.user_id !== req.user.id && !isAdmin) {
+      throw new ForbiddenException('You can only edit your own comments');
+    }
     return this.commentsService.update(id, updateCommentDto);
   }
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
   @Audit({ action: 'DELETE_COMMENT', resource: 'Comment' })
-  async remove(@Param('id') id: string) {
+  async remove(@Param('id') id: string, @Request() req: any) {
+    const comment = await this.commentsService.findOne(id);
+    const isAdmin = ['super_admin', 'admin'].includes(req.user?.role?.slug || req.user?.role);
+    if (comment.user_id !== req.user.id && !isAdmin) {
+      throw new ForbiddenException('You can only delete your own comments');
+    }
     return this.commentsService.remove(id);
   }
 

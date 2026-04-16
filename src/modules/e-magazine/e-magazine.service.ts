@@ -50,22 +50,42 @@ export class EMagazineService {
     try {
       await writeFile(inputPath, buffer);
 
+      let lastCompressed: Buffer | null = null;
+
       for (const preset of ['/ebook', '/screen'] as const) {
-        await this.runGhostscript(inputPath, outputPath, preset);
-        const compressed = await readFile(outputPath);
+        try {
+          await this.runGhostscript(inputPath, outputPath, preset);
+          const compressed = await readFile(outputPath);
+          lastCompressed = compressed;
 
-        this.logger.log(
-          `PDF "${originalName}" compressed with ${preset}: ${(buffer.length / 1024 / 1024).toFixed(1)}MB → ${(compressed.length / 1024 / 1024).toFixed(1)}MB`,
-        );
+          this.logger.log(
+            `PDF "${originalName}" compressed with ${preset}: ${(buffer.length / 1024 / 1024).toFixed(1)}MB → ${(compressed.length / 1024 / 1024).toFixed(1)}MB`,
+          );
 
-        if (compressed.length <= EMagazineService.MAX_PDF_SIZE) {
-          return { buffer: compressed, size: compressed.length };
+          if (compressed.length <= EMagazineService.MAX_PDF_SIZE) {
+            return { buffer: compressed, size: compressed.length };
+          }
+        } catch (gsError) {
+          this.logger.warn(
+            `Ghostscript (${preset}) failed for "${originalName}": ${gsError instanceof Error ? gsError.message : gsError}`,
+          );
+          // Continue to next preset instead of aborting
         }
       }
 
-      // Even /screen didn't bring it under 25MB – return best effort
-      const finalBuffer = await readFile(outputPath);
-      return { buffer: finalBuffer, size: finalBuffer.length };
+      // Both presets either failed or couldn't compress below threshold
+      if (lastCompressed && lastCompressed.length < buffer.length) {
+        // Return best-effort compressed version if it's at least smaller
+        this.logger.warn(
+          `PDF "${originalName}" compressed but still over 25MB (${(lastCompressed.length / 1024 / 1024).toFixed(1)}MB). Uploading best-effort result.`,
+        );
+        return { buffer: lastCompressed, size: lastCompressed.length };
+      }
+
+      throw new BadRequestException(
+        `PDF file "${originalName}" (${(buffer.length / 1024 / 1024).toFixed(1)}MB) could not be compressed below 25MB. ` +
+        `Please reduce the file size manually and try again.`,
+      );
     } finally {
       await unlink(inputPath).catch(() => {});
       await unlink(outputPath).catch(() => {});

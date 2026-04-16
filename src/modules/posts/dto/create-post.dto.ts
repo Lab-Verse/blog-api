@@ -77,6 +77,10 @@ export class CreatePostDto {
   featured_image?: string;
 
   @IsOptional()
+  @IsString()
+  video_url?: string;
+
+  @IsOptional()
   @IsDateString()
   published_at?: string;
 
